@@ -29,8 +29,12 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty]
     private string _titleSuffix = "";
 
+    [ObservableProperty]
+    private VehicleEntry? _selectedVehicle;
+
     public ObservableCollection<NavigationItem> NavigationItems { get; } = new();
     public ObservableCollection<RecentProjectItem> RecentProjects { get; } = new();
+    public ObservableCollection<VehicleEntry> Vehicles => _currentProject.Vehicles;
 
     private readonly ModelViewerViewModel _modelViewerVm;
     private readonly HandlingEditorViewModel _handlingEditorVm;
@@ -65,6 +69,7 @@ public partial class MainWindowViewModel : ObservableObject
         NavigationItems.Add(new NavigationItem("Export", "PackageVariant", nameof(ExportViewModel)));
 
         SelectedNavItem = NavigationItems[0];
+        _exportVm.Vehicles = _currentProject.Vehicles;
         LoadRecentProjects();
     }
 
@@ -84,13 +89,167 @@ public partial class MainWindowViewModel : ObservableObject
         };
     }
 
+    #region Vehicle Management
+
+    partial void OnSelectedVehicleChanged(VehicleEntry? value)
+    {
+        if (value is null)
+        {
+            VehicleName = "No Vehicle";
+            ClearEditors();
+            return;
+        }
+
+        VehicleName = value.Name;
+        LoadVehicleIntoEditors(value);
+    }
+
+    private void ClearEditors()
+    {
+        _handlingEditorVm.Handling = null;
+        _handlingEditorVm.IsLoaded = false;
+        _handlingEditorVm.StatusMessage = "No handling.meta loaded";
+
+        _carVariationsVm.Variation = null;
+        _carVariationsVm.IsLoaded = false;
+        _carVariationsVm.StatusMessage = "No carvariations.meta loaded";
+
+        _sirenEditorVm.CarCols = null;
+        _sirenEditorVm.SelectedSiren = null;
+        _sirenEditorVm.IsLoaded = false;
+        _sirenEditorVm.StatusMessage = "No carcols.meta loaded";
+
+        _vehicleMetaVm.Vehicle = null;
+        _vehicleMetaVm.IsLoaded = false;
+        _vehicleMetaVm.StatusMessage = "No vehicles.meta loaded";
+    }
+
+    private void LoadVehicleIntoEditors(VehicleEntry vehicle)
+    {
+        // Load meta files into editors
+        if (!string.IsNullOrEmpty(vehicle.HandlingMetaPath) && File.Exists(vehicle.HandlingMetaPath))
+            _handlingEditorVm.LoadFromPath(vehicle.HandlingMetaPath);
+
+        if (!string.IsNullOrEmpty(vehicle.CarVariationsMetaPath) && File.Exists(vehicle.CarVariationsMetaPath))
+            _carVariationsVm.LoadFromPath(vehicle.CarVariationsMetaPath);
+
+        if (!string.IsNullOrEmpty(vehicle.CarColsMetaPath) && File.Exists(vehicle.CarColsMetaPath))
+            _sirenEditorVm.LoadFromPath(vehicle.CarColsMetaPath);
+
+        if (!string.IsNullOrEmpty(vehicle.VehiclesMetaPath) && File.Exists(vehicle.VehiclesMetaPath))
+            _vehicleMetaVm.LoadFromPath(vehicle.VehiclesMetaPath);
+
+        if (!string.IsNullOrEmpty(vehicle.YftFilePath) && File.Exists(vehicle.YftFilePath))
+            _modelViewerVm.LoadFromPath(vehicle.YftFilePath, vehicle.YtdFilePath);
+
+        StatusText = $"Loaded vehicle: {vehicle.Name}";
+    }
+
+    [RelayCommand]
+    private void AddVehicle()
+    {
+        var vehicle = new VehicleEntry { Name = $"Vehicle {_currentProject.Vehicles.Count + 1}" };
+        _currentProject.Vehicles.Add(vehicle);
+        SelectedVehicle = vehicle;
+        IsDirty = true;
+        StatusText = $"Added: {vehicle.Name}";
+    }
+
+    [RelayCommand]
+    private void RemoveVehicle()
+    {
+        if (SelectedVehicle == null) return;
+
+        var name = SelectedVehicle.Name;
+        var idx = _currentProject.Vehicles.IndexOf(SelectedVehicle);
+        _currentProject.Vehicles.Remove(SelectedVehicle);
+
+        if (_currentProject.Vehicles.Count > 0)
+            SelectedVehicle = _currentProject.Vehicles[Math.Max(0, idx - 1)];
+        else
+            SelectedVehicle = null;
+
+        IsDirty = true;
+        StatusText = $"Removed: {name}";
+    }
+
+    [RelayCommand]
+    private void ImportVehicleFiles()
+    {
+        if (SelectedVehicle == null)
+        {
+            StatusText = "Select a vehicle first.";
+            return;
+        }
+
+        var dialog = new OpenFileDialog
+        {
+            Filter = "Vehicle Files|*.yft;*.ytd;*.meta|YFT Models|*.yft|YTD Textures|*.ytd|Meta Files|*.meta|All Files|*.*",
+            Title = "Import files for " + SelectedVehicle.Name,
+            Multiselect = true
+        };
+        if (dialog.ShowDialog() != true) return;
+
+        foreach (var file in dialog.FileNames)
+        {
+            var fileName = Path.GetFileName(file).ToLowerInvariant();
+            var ext = Path.GetExtension(file).ToLowerInvariant();
+
+            if (ext == ".yft")
+            {
+                if (fileName.Contains("_hi"))
+                    SelectedVehicle.YftHiFilePath = file;
+                else
+                    SelectedVehicle.YftFilePath = file;
+            }
+            else if (ext == ".ytd")
+            {
+                if (fileName.Contains("+hi"))
+                    SelectedVehicle.YtdHiFilePath = file;
+                else
+                    SelectedVehicle.YtdFilePath = file;
+            }
+            else if (ext == ".meta")
+            {
+                if (fileName.Contains("handling"))
+                    SelectedVehicle.HandlingMetaPath = file;
+                else if (fileName.Contains("vehicles"))
+                    SelectedVehicle.VehiclesMetaPath = file;
+                else if (fileName.Contains("carvariations"))
+                    SelectedVehicle.CarVariationsMetaPath = file;
+                else if (fileName.Contains("carcols"))
+                    SelectedVehicle.CarColsMetaPath = file;
+                else if (fileName.Contains("vehiclelayouts"))
+                    SelectedVehicle.VehicleLayoutsMetaPath = file;
+            }
+        }
+
+        // Auto-detect vehicle name from YFT filename
+        if (!string.IsNullOrEmpty(SelectedVehicle.YftFilePath))
+        {
+            var modelName = Path.GetFileNameWithoutExtension(SelectedVehicle.YftFilePath);
+            if (SelectedVehicle.Name.StartsWith("Vehicle "))
+                SelectedVehicle.Name = modelName;
+        }
+
+        IsDirty = true;
+        LoadVehicleIntoEditors(SelectedVehicle);
+        StatusText = $"Imported {dialog.FileNames.Length} file(s) for {SelectedVehicle.Name}";
+    }
+
+    #endregion
+
     #region Project Commands
 
     [RelayCommand]
     private void NewProject()
     {
         _currentProject = _projectService.CreateNew();
-        VehicleName = _currentProject.ProjectName;
+        OnPropertyChanged(nameof(Vehicles));
+        _exportVm.Vehicles = _currentProject.Vehicles;
+        _exportVm.ResourceName = "";
+        SelectedVehicle = null;
+        VehicleName = "No Vehicle";
         IsDirty = false;
         TitleSuffix = "";
         StatusText = "New project created";
@@ -113,37 +272,23 @@ public partial class MainWindowViewModel : ObservableObject
         try
         {
             _currentProject = _projectService.Load(path);
-            VehicleName = _currentProject.ProjectName;
+            OnPropertyChanged(nameof(Vehicles));
             IsDirty = false;
             TitleSuffix = $" - {Path.GetFileName(path)}";
             _projectService.AddToRecentProjects(path);
             LoadRecentProjects();
 
-            // Load associated files into editors
-            if (!string.IsNullOrEmpty(_currentProject.HandlingMetaPath) && File.Exists(_currentProject.HandlingMetaPath))
-                _handlingEditorVm.LoadFromPath(_currentProject.HandlingMetaPath);
-            if (!string.IsNullOrEmpty(_currentProject.CarVariationsMetaPath) && File.Exists(_currentProject.CarVariationsMetaPath))
-                _carVariationsVm.LoadFromPath(_currentProject.CarVariationsMetaPath);
-            if (!string.IsNullOrEmpty(_currentProject.CarColsMetaPath) && File.Exists(_currentProject.CarColsMetaPath))
-                _sirenEditorVm.LoadFromPath(_currentProject.CarColsMetaPath);
-            if (!string.IsNullOrEmpty(_currentProject.VehiclesMetaPath) && File.Exists(_currentProject.VehiclesMetaPath))
-                _vehicleMetaVm.LoadFromPath(_currentProject.VehiclesMetaPath);
-            if (!string.IsNullOrEmpty(_currentProject.YftFilePath) && File.Exists(_currentProject.YftFilePath))
-                _modelViewerVm.LoadFromPath(_currentProject.YftFilePath, _currentProject.YtdFilePath);
+            // Select first vehicle if available
+            if (_currentProject.Vehicles.Count > 0)
+                SelectedVehicle = _currentProject.Vehicles[0];
+            else
+                SelectedVehicle = null;
 
-            // Populate export view with project paths
+            // Populate export view
+            _exportVm.Vehicles = _currentProject.Vehicles;
             _exportVm.ResourceName = _currentProject.ProjectName;
-            _exportVm.YftPath = _currentProject.YftFilePath ?? "";
-            _exportVm.YftHiPath = _currentProject.YftHiFilePath ?? "";
-            _exportVm.YtdPath = _currentProject.YtdFilePath ?? "";
-            _exportVm.YtdHiPath = _currentProject.YtdHiFilePath ?? "";
-            _exportVm.HandlingMetaPath = _currentProject.HandlingMetaPath ?? "";
-            _exportVm.VehiclesMetaPath = _currentProject.VehiclesMetaPath ?? "";
-            _exportVm.CarVariationsMetaPath = _currentProject.CarVariationsMetaPath ?? "";
-            _exportVm.CarColsMetaPath = _currentProject.CarColsMetaPath ?? "";
-            _exportVm.VehicleLayoutsMetaPath = _currentProject.VehicleLayoutsMetaPath ?? "";
 
-            StatusText = $"Opened: {Path.GetFileName(path)}";
+            StatusText = $"Opened: {Path.GetFileName(path)} ({_currentProject.Vehicles.Count} vehicle(s))";
         }
         catch (Exception ex)
         {

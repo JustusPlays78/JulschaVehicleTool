@@ -105,3 +105,4 @@ C:\Users\Julian.HomePC\Desktop\HCRP\Server\JulschaVehicleTool\src\JulschaVehicle
 C:\Users\Julian.HomePC\Desktop\HCRP\Server\JulschaVehicleTool\src\JulschaVehicleTool.Tests\obj\Debug\net8.0\JulschaVehicleTool.Tests.pdb
 C:\Users\Julian.HomePC\Desktop\HCRP\Server\JulschaVehicleTool\src\JulschaVehicleTool.Tests\obj\Debug\net8.0\JulschaVehicleTool.Tests.genruntimeconfig.cache
 C:\Users\Julian.HomePC\Desktop\HCRP\Server\JulschaVehicleTool\src\JulschaVehicleTool.Tests\obj\Debug\net8.0\ref\JulschaVehicleTool.Tests.dll
+C:\Users\Julian.HomePC\Desktop\HCRP\Server\JulschaVehicleTool\src\JulschaVehicleTool.Tests\obj\Debug\net8.0\JulschaVehicleTool.Tests.sourcelink.json

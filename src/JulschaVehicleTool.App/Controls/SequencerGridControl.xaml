@@ -1,0 +1,24 @@
+<UserControl x:Class="JulschaVehicleTool.App.Controls.SequencerGridControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Root">
+    <StackPanel>
+        <DockPanel Margin="0,0,0,4">
+            <TextBlock Text="{Binding Label, ElementName=Root}"
+                       Foreground="{DynamicResource OnSurfaceVariantBrush}"
+                       VerticalAlignment="Center" Width="120" />
+            <TextBox Text="{Binding Value, ElementName=Root, UpdateSourceTrigger=PropertyChanged}"
+                     Background="{DynamicResource SurfaceBrush}"
+                     Foreground="{DynamicResource OnSurfaceBrush}"
+                     BorderBrush="{DynamicResource BorderBrush}"
+                     Width="100" HorizontalAlignment="Right"
+                     VerticalContentAlignment="Center" Height="24"
+                     FontFamily="Consolas" FontSize="11" />
+        </DockPanel>
+        <UniformGrid x:Name="BitGrid" Rows="1" Columns="32" Height="22"
+                     MouseLeftButtonDown="BitGrid_MouseDown"
+                     MouseMove="BitGrid_MouseMove"
+                     MouseLeftButtonUp="BitGrid_MouseUp"
+                     Background="Transparent" />
+    </StackPanel>
+</UserControl>

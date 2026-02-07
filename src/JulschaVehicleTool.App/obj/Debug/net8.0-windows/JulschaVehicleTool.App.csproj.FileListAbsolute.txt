@@ -95,3 +95,8 @@ C:\Users\Julian.HomePC\Desktop\HCRP\Server\JulschaVehicleTool\src\JulschaVehicle
 C:\Users\Julian.HomePC\Desktop\HCRP\Server\JulschaVehicleTool\src\JulschaVehicleTool.App\obj\Debug\net8.0-windows\Controls\Vector3EditorControl.baml
 C:\Users\Julian.HomePC\Desktop\HCRP\Server\JulschaVehicleTool\src\JulschaVehicleTool.App\obj\Debug\net8.0-windows\Controls\NumericSliderControl.g.cs
 C:\Users\Julian.HomePC\Desktop\HCRP\Server\JulschaVehicleTool\src\JulschaVehicleTool.App\obj\Debug\net8.0-windows\Controls\Vector3EditorControl.g.cs
+C:\Users\Julian.HomePC\Desktop\HCRP\Server\JulschaVehicleTool\src\JulschaVehicleTool.App\obj\Debug\net8.0-windows\JulschaVehicleTool.App.sourcelink.json
+C:\Users\Julian.HomePC\Desktop\HCRP\Server\JulschaVehicleTool\src\JulschaVehicleTool.App\obj\Debug\net8.0-windows\Controls\SequencerGridControl.baml
+C:\Users\Julian.HomePC\Desktop\HCRP\Server\JulschaVehicleTool\src\JulschaVehicleTool.App\obj\Debug\net8.0-windows\Controls\SirenColorPickerControl.baml
+C:\Users\Julian.HomePC\Desktop\HCRP\Server\JulschaVehicleTool\src\JulschaVehicleTool.App\obj\Debug\net8.0-windows\Controls\SequencerGridControl.g.cs
+C:\Users\Julian.HomePC\Desktop\HCRP\Server\JulschaVehicleTool\src\JulschaVehicleTool.App\obj\Debug\net8.0-windows\Controls\SirenColorPickerControl.g.cs

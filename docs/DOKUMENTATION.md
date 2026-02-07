@@ -30,25 +30,46 @@ src\JulschaVehicleTool.App\bin\Debug\net8.0-windows10.0.19041\JulschaVehicleTool
 
 ## Projekt-System (.julveh)
 
-Ein Projekt ist eine `.julveh`-Datei (JSON), die **Pfade** zu allen Dateien eines Fahrzeugs speichert. Das Projekt selbst enthaelt keine Fahrzeugdaten, sondern merkt sich wo deine Dateien liegen.
+Ein Projekt ist eine `.julveh`-Datei (JSON), die **mehrere Fahrzeuge** und deren Dateipfade speichert. Das Projekt selbst enthaelt keine Fahrzeugdaten, sondern merkt sich wo deine Dateien liegen. Beim Export werden alle Fahrzeuge gemeinsam als eine FiveM-Resource exportiert.
 
 ### Neues Projekt erstellen
 
 1. **File > New Project** (oder Ctrl+N)
-2. Lade deine Dateien in den einzelnen Editoren:
-   - **Handling** Tab: Load -> handling.meta auswaehlen
-   - **Variations** Tab: Load -> carvariations.meta auswaehlen
-   - **Sirens** Tab: Load -> carcols.meta auswaehlen
-   - **Vehicle** Tab: Load -> vehicles.meta auswaehlen
-   - **3D Viewer** Tab: Load -> .yft Modelldatei auswaehlen
-3. **File > Save Project** (Ctrl+S) -> Speichert alle Pfade als .julveh
+2. In der Sidebar unter **VEHICLES** auf **+** klicken um ein Fahrzeug hinzuzufuegen
+3. **Import Files...** klicken um alle Dateien (.yft, .ytd, .meta) fuer das Fahrzeug zu importieren
+   - Die Dateien werden automatisch anhand des Dateinamens zugeordnet (z.B. handling.meta -> Handling Editor)
+   - Der Fahrzeugname wird automatisch vom YFT-Dateinamen uebernommen
+4. Weitere Fahrzeuge mit **+** hinzufuegen und Dateien importieren
+5. Fahrzeug in der Liste anklicken -> Editoren zeigen die Daten dieses Fahrzeugs
+6. **File > Save Project** (Ctrl+S) -> Speichert alle Fahrzeuge und Pfade als .julveh
+
+### Fahrzeuge verwalten
+
+- **+ Button**: Neues Fahrzeug zum Projekt hinzufuegen
+- **- Button**: Ausgewaehltes Fahrzeug aus dem Projekt entfernen
+- **Import Files...**: Dateien (.yft, .ytd, .meta) fuer das ausgewaehlte Fahrzeug importieren
+- **Fahrzeug anklicken**: Wechselt die Editoren auf dieses Fahrzeug
+
+Die Dateizuordnung beim Import erfolgt automatisch:
+| Dateiname enthaelt | Zuordnung |
+|---------------------|-----------|
+| `*.yft` (ohne `_hi`) | Fahrzeugmodell |
+| `*_hi.yft` | High-Detail Modell |
+| `*.ytd` (ohne `+hi`) | Texturen |
+| `*+hi.ytd` | HD-Texturen |
+| `handling*.meta` | Handling Editor |
+| `vehicles*.meta` | Vehicle Meta Editor |
+| `carvariations*.meta` | Variations Editor |
+| `carcols*.meta` | Siren Editor |
+| `vehiclelayouts*.meta` | Vehicle Layouts |
 
 ### Projekt oeffnen
 
 1. **File > Open Project** (oder Ctrl+O)
 2. Eine `.julveh`-Datei auswaehlen
-3. Alle verknuepften Dateien werden automatisch in die Editoren geladen
-4. Der Export-Tab wird automatisch mit allen Pfaden befuellt
+3. Alle Fahrzeuge erscheinen in der Sidebar
+4. Das erste Fahrzeug wird automatisch in die Editoren geladen
+5. Der Export-Tab zeigt alle Fahrzeuge mit ihrem Dateistatus
 
 ### Kuerzlich geoeffnete Projekte
 
@@ -132,44 +153,45 @@ Bearbeitet die `vehicles.meta` - die Fahrzeugdefinition.
 
 ## FiveM Export
 
-Der Export-Tab erstellt eine fertige FiveM-Resource aus allen Dateien.
+Der Export-Tab erstellt eine fertige FiveM-Resource aus **allen Fahrzeugen im Projekt**.
 
 ### Schritt-fuer-Schritt
 
-1. **Export** Tab in der Sidebar auswaehlen
-2. **Resource Information** ausfuellen:
+1. Fahrzeuge zum Projekt hinzufuegen und Dateien importieren (siehe oben)
+2. **Export** Tab in der Sidebar auswaehlen
+3. **Resource Information** ausfuellen:
    - Resource Name (wird zum Ordnernamen)
    - Author, Version
-3. **Stream Files** angeben:
-   - Vehicle Model (.yft) - Pflicht
-   - High-Detail Model (_hi.yft) - Optional
-   - Textures (.ytd) - Empfohlen
-   - High-Detail Textures (+hi.ytd) - Optional
-4. **Meta Files** angeben:
-   - handling.meta, vehicles.meta, carvariations.meta, carcols.meta, vehiclelayouts.meta
-5. **Vehicle Names** (optional):
-   - Anzeigename fuer das Fahrzeug im Spiel (via AddTextEntry)
+4. Im Bereich **Vehicles in Project** pruefen ob alle Dateien vorhanden sind
+   - Vorhandene Dateien werden normal angezeigt, fehlende sind ausgegraut
+5. **Vehicle Names** aktivieren (optional) - generiert automatisch AddTextEntry fuer jedes Fahrzeug
 6. **Output Folder** waehlen
 7. **Export Resource** klicken
 
-### Exportierte Ordnerstruktur
+### Exportierte Ordnerstruktur (Multi-Vehicle)
 
 ```
 meine_resource/
 ├── fxmanifest.lua          # FiveM Manifest (automatisch generiert)
 ├── stream/
-│   ├── fahrzeug.yft        # 3D-Modell
-│   ├── fahrzeug_hi.yft     # High-Detail (falls vorhanden)
-│   ├── fahrzeug.ytd        # Texturen
-│   └── fahrzeug+hi.ytd     # HD-Texturen (optional)
+│   ├── adder.yft           # Fahrzeug 1 Modell
+│   ├── adder.ytd           # Fahrzeug 1 Texturen
+│   ├── police.yft          # Fahrzeug 2 Modell
+│   └── police.ytd          # Fahrzeug 2 Texturen
 ├── data/
-│   ├── handling.meta       # Fahrphysik
-│   ├── vehicles.meta       # Fahrzeugdefinition
-│   ├── carvariations.meta  # Farben & Ausstattung
-│   ├── carcols.meta        # Sirenen & Lichter
-│   └── vehiclelayouts.meta # Sitzplaetze
-└── vehicle_names.lua       # Anzeigename (optional)
+│   ├── adder/              # Fahrzeug 1 Meta-Dateien
+│   │   ├── handling.meta
+│   │   ├── vehicles.meta
+│   │   └── carvariations.meta
+│   └── police/             # Fahrzeug 2 Meta-Dateien
+│       ├── handling.meta
+│       ├── vehicles.meta
+│       ├── carvariations.meta
+│       └── carcols.meta
+└── vehicle_names.lua       # Anzeigenamen (optional)
 ```
+
+Jedes Fahrzeug bekommt einen eigenen Unterordner unter `data/`. Stream-Dateien (.yft, .ytd) liegen alle gemeinsam in `stream/`. Das `fxmanifest.lua` verwendet Glob-Patterns (`data/**/*.meta`) um alle Unterordner automatisch zu erfassen.
 
 ### FiveM-Server Einrichtung
 
@@ -193,24 +215,38 @@ FiveM crasht bei Stream-Dateien ueber 16 MB. Der Export-Service prueft automatis
 
 1. Fahrzeugdateien aus OpenIV extrahieren (.yft, .ytd, alle .meta)
 2. Julscha Vehicle Tool starten
-3. In jedem Editor die passende .meta Datei laden
-4. Werte anpassen (z.B. Handling tunen, Farben aendern)
-5. Meta-Dateien speichern (Save in jedem Editor)
-6. Im Export-Tab alle Dateien zusammenstellen
-7. Als FiveM-Resource exportieren
-8. Auf dem FiveM-Server testen
+3. **+** klicken um ein Fahrzeug hinzuzufuegen
+4. **Import Files...** klicken und alle extrahierten Dateien auswaehlen
+5. In den Editoren Werte anpassen (z.B. Handling tunen, Farben aendern)
+6. Meta-Dateien speichern (Save in jedem Editor)
+7. Weitere Fahrzeuge hinzufuegen (optional)
+8. Im Export-Tab als FiveM-Resource exportieren
+9. Auf dem FiveM-Server testen
+
+### Mehrere Fahrzeuge als eine Resource
+
+1. Julscha Vehicle Tool starten -> Neues Projekt
+2. Fuer jedes Fahrzeug:
+   - **+** klicken
+   - **Import Files...** -> Alle Dateien des Fahrzeugs auswaehlen
+   - In den Editoren anpassen
+3. Projekt speichern (.julveh)
+4. Export-Tab -> Resource-Name vergeben -> Export
+5. Alle Fahrzeuge werden in einer gemeinsamen FiveM-Resource gebundelt
 
 ### Neues Fahrzeug von Grund auf
 
 1. 3D-Modell in ZModeler/Blender erstellen -> .yft/.ytd
 2. Julscha Vehicle Tool starten
-3. Handling Preset waehlen (z.B. "Sports Car" unter Menu > Presets)
-4. Handling-Werte feintunen
-5. Vehicle Meta ausfuellen (Name, Klasse, Typ etc.)
-6. Carvariations anlegen (Farbkombinationen)
-7. Bei Einsatzfahrzeugen: Sirenen konfigurieren
-8. Projekt speichern (.julveh)
-9. Als FiveM-Resource exportieren
+3. **+** klicken um Fahrzeug hinzuzufuegen
+4. **Import Files...** -> .yft und .ytd auswaehlen
+5. Handling Preset waehlen (z.B. "Sports Car" unter Menu > Presets)
+6. Handling-Werte feintunen
+7. Vehicle Meta ausfuellen (Name, Klasse, Typ etc.)
+8. Carvariations anlegen (Farbkombinationen)
+9. Bei Einsatzfahrzeugen: Sirenen konfigurieren
+10. Projekt speichern (.julveh)
+11. Als FiveM-Resource exportieren
 
 ---
 
@@ -218,7 +254,7 @@ FiveM crasht bei Stream-Dateien ueber 16 MB. Der Export-Service prueft automatis
 
 | Datei | Format | Beschreibung |
 |-------|--------|-------------|
-| `.julveh` | JSON | Projektdatei (speichert Pfade zu allen Dateien) |
+| `.julveh` | JSON | Projektdatei (speichert mehrere Fahrzeuge mit allen Dateipfaden) |
 | `.yft` | GTA V Binary | Fahrzeug-3D-Modell (Fragment Type) |
 | `.ytd` | GTA V Binary | Texturen-Woerterbuch (Texture Dictionary) |
 | `handling.meta` | XML | Fahrphysik (~50+ Parameter) |

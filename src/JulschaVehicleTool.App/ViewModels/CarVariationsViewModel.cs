@@ -39,6 +39,7 @@ public partial class CarVariationsViewModel : ObservableObject
         catch (Exception ex)
         {
             StatusMessage = $"Error: {ex.Message}";
+            Variation = null;
             IsLoaded = false;
         }
     }
@@ -54,7 +55,7 @@ public partial class CarVariationsViewModel : ObservableObject
             if (dialog.ShowDialog() != true) return;
             path = dialog.FileName;
         }
-        try { _metaXmlService.SaveCarVariations(Variation, path); StatusMessage = $"Saved: {path}"; }
+        try { _metaXmlService.SaveCarVariations(Variation, path); _currentFilePath = path; StatusMessage = $"Saved: {path}"; }
         catch (Exception ex) { StatusMessage = $"Error: {ex.Message}"; }
     }
 

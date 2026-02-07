@@ -10,3 +10,4 @@ C:\Users\Julian.HomePC\Desktop\HCRP\Server\JulschaVehicleTool\src\JulschaVehicle
 C:\Users\Julian.HomePC\Desktop\HCRP\Server\JulschaVehicleTool\src\JulschaVehicleTool.Core\obj\Debug\net8.0\refint\JulschaVehicleTool.Core.dll
 C:\Users\Julian.HomePC\Desktop\HCRP\Server\JulschaVehicleTool\src\JulschaVehicleTool.Core\obj\Debug\net8.0\JulschaVehicleTool.Core.pdb
 C:\Users\Julian.HomePC\Desktop\HCRP\Server\JulschaVehicleTool\src\JulschaVehicleTool.Core\obj\Debug\net8.0\ref\JulschaVehicleTool.Core.dll
+C:\Users\Julian.HomePC\Desktop\HCRP\Server\JulschaVehicleTool\src\JulschaVehicleTool.Core\obj\Debug\net8.0\JulschaVehicleTool.Core.sourcelink.json

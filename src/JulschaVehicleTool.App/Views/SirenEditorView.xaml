@@ -14,241 +14,236 @@
         </Grid.RowDefinitions>
 
         <!-- Toolbar -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="8">
-            <Button Content="Load" Command="{Binding LoadFileCommand}" Padding="12,4" Margin="0,0,4,0" />
-            <Button Content="Save" Command="{Binding SaveFileCommand}" Padding="12,4" Margin="0,0,12,0" />
-            <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center"
-                       Foreground="{DynamicResource OnSurfaceVariantBrush}" FontSize="11" />
-        </StackPanel>
+        <Border Grid.Row="0" Background="{DynamicResource SurfaceVariantBrush}" Padding="8,6">
+            <DockPanel>
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                    <Button Content="New" Command="{Binding NewFileCommand}" Padding="10,4" Margin="0,0,4,0" />
+                    <Button Content="Load" Command="{Binding LoadFileCommand}" Padding="10,4" Margin="0,0,4,0" />
+                    <Button Content="Save" Command="{Binding SaveFileCommand}" Padding="10,4" Margin="0,0,12,0" />
+                </StackPanel>
+                <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center"
+                           Foreground="{DynamicResource OnSurfaceVariantBrush}" FontSize="11" />
+            </DockPanel>
+        </Border>
 
         <!-- Placeholder when no data loaded -->
-        <TextBlock Grid.Row="1" Text="No carcols.meta loaded. Use Load or File > Import."
+        <TextBlock Grid.Row="1" Text="No carcols.meta loaded. Click New or Load."
                    Style="{DynamicResource PlaceholderTextStyle}"
                    Visibility="{Binding IsLoaded, Converter={StaticResource InverseBoolToVis}}"
                    IsHitTestVisible="False" />
 
-        <!-- Editor -->
+        <!-- Main 3-column editor -->
         <Grid Grid.Row="1" Visibility="{Binding IsLoaded, Converter={StaticResource BoolToVis}}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="220" />
+                <ColumnDefinition Width="200" />
+                <ColumnDefinition Width="200" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <!-- Siren Settings List -->
-            <Border Grid.Column="0" BorderBrush="{DynamicResource SurfaceVariantBrush}" BorderThickness="0,0,1,0">
+            <!-- Column 1: Siren Settings List -->
+            <Border Grid.Column="0" Background="{DynamicResource SurfaceVariantBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
                 <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Margin="8">
-                        <TextBlock Text="Siren Settings" FontSize="14" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource OnSurfaceBrush}" Margin="0,0,0,8" />
-                        <Button Content="Add Setting" Command="{Binding AddSirenSettingCommand}"
-                                HorizontalAlignment="Stretch" Padding="8,4" />
+                    <StackPanel DockPanel.Dock="Top" Margin="8,8,8,4">
+                        <TextBlock Text="SIREN SETTINGS" FontSize="11" FontWeight="SemiBold" Margin="0,0,0,6"
+                                   Foreground="{DynamicResource OnSurfaceVariantBrush}" />
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <Button Content="+" Command="{Binding AddSirenSettingCommand}" Width="28" Height="28" Padding="0" Margin="0,0,4,0"
+                                    ToolTip="Add Siren Setting" FontWeight="Bold" />
+                            <Button Content="-" Command="{Binding RemoveSirenSettingCommand}" Width="28" Height="28" Padding="0" Margin="0,0,4,0"
+                                    ToolTip="Remove Siren Setting" FontWeight="Bold" />
+                            <Button Content="C" Command="{Binding CloneSirenSettingCommand}" Width="28" Height="28" Padding="0"
+                                    ToolTip="Clone Siren Setting" FontWeight="Bold" />
+                        </StackPanel>
                     </StackPanel>
-
                     <ListBox ItemsSource="{Binding CarCols.SirenSettings}"
                              SelectedItem="{Binding SelectedSiren}"
-                             Margin="4" DisplayMemberPath="Name" />
+                             Background="Transparent" BorderThickness="0"
+                             Margin="4,0" DisplayMemberPath="Name" />
                 </DockPanel>
             </Border>
 
-            <!-- Selected Siren Detail -->
-            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
-                <StackPanel Margin="16" DataContext="{Binding SelectedSiren}">
-
-                    <!-- General -->
-                    <Expander Header="General" IsExpanded="True" Margin="0,0,0,8">
-                        <StackPanel Margin="8,4">
-                            <Grid Margin="0,2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="180" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="ID" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
-                                <TextBox Grid.Column="1" Text="{Binding Id, UpdateSourceTrigger=LostFocus}" Width="100" HorizontalAlignment="Left" />
-                            </Grid>
-                            <Grid Margin="0,2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="180" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Name" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
-                                <TextBox Grid.Column="1" Text="{Binding Name, UpdateSourceTrigger=LostFocus}" />
-                            </Grid>
-                            <controls:NumericSliderControl Label="Time Multiplier" Value="{Binding TimeMultiplier}" Min="0" Max="10" Step="0.1" />
-                            <controls:NumericSliderControl Label="Light Falloff Max" Value="{Binding LightFalloffMax}" Min="0" Max="100" Step="0.5" />
-                            <controls:NumericSliderControl Label="Light Falloff Exponent" Value="{Binding LightFalloffExponent}" Min="0" Max="100" Step="0.5" />
-                            <controls:NumericSliderControl Label="Light Inner Cone" Value="{Binding LightInnerConeAngle}" Min="0" Max="90" Step="0.1" />
-                            <controls:NumericSliderControl Label="Light Outer Cone" Value="{Binding LightOuterConeAngle}" Min="0" Max="180" Step="0.5" />
-                            <controls:NumericSliderControl Label="Light Offset" Value="{Binding LightOffset}" Min="-10" Max="10" Step="0.01" />
-                            <Grid Margin="0,2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="180" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Texture Name" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
-                                <TextBox Grid.Column="1" Text="{Binding TextureName, UpdateSourceTrigger=LostFocus}" />
-                            </Grid>
-                            <controls:NumericSliderControl Label="Sequencer BPM" Value="{Binding SequencerBpm}" Min="1" Max="600" Step="1" />
-                            <CheckBox Content="Use Real Lights" IsChecked="{Binding UseRealLights}" Margin="0,4"
-                                      Foreground="{DynamicResource OnSurfaceBrush}" />
-                        </StackPanel>
-                    </Expander>
-
-                    <!-- Head/Tail Light Sequencers -->
-                    <Expander Header="Head/Tail Light Sequencers" Margin="0,0,0,8">
-                        <StackPanel Margin="8,4">
-                            <Grid Margin="0,2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="180" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="80" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Left Headlight Seq" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
-                                <TextBox Grid.Column="1" Text="{Binding LeftHeadLightSequencer, UpdateSourceTrigger=LostFocus}" FontFamily="Consolas" />
-                                <TextBox Grid.Column="2" Text="{Binding LeftHeadLightMultiples, UpdateSourceTrigger=LostFocus}" Margin="4,0,0,0"
-                                         HorizontalContentAlignment="Right" ToolTip="Multiples" />
-                            </Grid>
-                            <Grid Margin="0,2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="180" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="80" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Right Headlight Seq" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
-                                <TextBox Grid.Column="1" Text="{Binding RightHeadLightSequencer, UpdateSourceTrigger=LostFocus}" FontFamily="Consolas" />
-                                <TextBox Grid.Column="2" Text="{Binding RightHeadLightMultiples, UpdateSourceTrigger=LostFocus}" Margin="4,0,0,0"
-                                         HorizontalContentAlignment="Right" ToolTip="Multiples" />
-                            </Grid>
-                            <Grid Margin="0,2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="180" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="80" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Left Taillight Seq" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
-                                <TextBox Grid.Column="1" Text="{Binding LeftTailLightSequencer, UpdateSourceTrigger=LostFocus}" FontFamily="Consolas" />
-                                <TextBox Grid.Column="2" Text="{Binding LeftTailLightMultiples, UpdateSourceTrigger=LostFocus}" Margin="4,0,0,0"
-                                         HorizontalContentAlignment="Right" ToolTip="Multiples" />
-                            </Grid>
-                            <Grid Margin="0,2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="180" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="80" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Right Taillight Seq" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
-                                <TextBox Grid.Column="1" Text="{Binding RightTailLightSequencer, UpdateSourceTrigger=LostFocus}" FontFamily="Consolas" />
-                                <TextBox Grid.Column="2" Text="{Binding RightTailLightMultiples, UpdateSourceTrigger=LostFocus}" Margin="4,0,0,0"
-                                         HorizontalContentAlignment="Right" ToolTip="Multiples" />
-                            </Grid>
-                        </StackPanel>
-                    </Expander>
-
-                    <!-- Siren Lights -->
-                    <Expander Header="Siren Lights (max 20)" IsExpanded="True" Margin="0,0,0,8">
-                        <StackPanel Margin="8,4">
-                            <Button Content="Add Siren Light"
+            <!-- Column 2: Siren Lights List -->
+            <Border Grid.Column="1" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
+                <DockPanel DataContext="{Binding SelectedSiren}">
+                    <StackPanel DockPanel.Dock="Top" Margin="8,8,8,4">
+                        <TextBlock Text="LIGHTS" FontSize="11" FontWeight="SemiBold" Margin="0,0,0,6"
+                                   Foreground="{DynamicResource OnSurfaceVariantBrush}" />
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <Button Content="+" Width="28" Height="28" Padding="0" Margin="0,0,4,0"
                                     Command="{Binding DataContext.AddSirenLightCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                    HorizontalAlignment="Left" Margin="0,0,0,8" Padding="12,4" />
-
-                            <ItemsControl ItemsSource="{Binding Sirens}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Expander Margin="0,0,0,4">
-                                            <Expander.Header>
-                                                <StackPanel Orientation="Horizontal">
-                                                    <Rectangle Width="12" Height="12" RadiusX="2" RadiusY="2" Margin="0,0,8,0">
-                                                        <Rectangle.Fill>
-                                                            <SolidColorBrush Color="Red" />
-                                                        </Rectangle.Fill>
-                                                    </Rectangle>
-                                                    <TextBlock Text="{Binding Color, StringFormat='Light - {0}'}" />
-                                                </StackPanel>
-                                            </Expander.Header>
-                                            <StackPanel Margin="16,4">
-                                                <!-- Light Properties -->
-                                                <TextBlock Text="Light Properties" FontWeight="SemiBold"
-                                                           Foreground="{DynamicResource OnSurfaceBrush}" Margin="0,0,0,4" />
-                                                <Grid Margin="0,2">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="140" />
-                                                        <ColumnDefinition Width="*" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <TextBlock Text="Color (ARGB hex)" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
-                                                    <TextBox Grid.Column="1" Text="{Binding Color, UpdateSourceTrigger=LostFocus}" Width="120" HorizontalAlignment="Left" FontFamily="Consolas" />
-                                                </Grid>
-                                                <controls:NumericSliderControl Label="Intensity" Value="{Binding Intensity}" Min="0" Max="10" Step="0.1" />
-                                                <controls:NumericSliderControl Label="Light Group" Value="{Binding LightGroup}" Min="0" Max="255" Step="1" />
-                                                <controls:NumericSliderControl Label="Scale Factor" Value="{Binding ScaleFactor}" Min="0" Max="10" Step="0.1" />
-                                                <WrapPanel Margin="0,4">
-                                                    <CheckBox Content="Rotate" IsChecked="{Binding Rotate}" Margin="0,0,12,0" Foreground="{DynamicResource OnSurfaceBrush}" />
-                                                    <CheckBox Content="Scale" IsChecked="{Binding Scale}" Margin="0,0,12,0" Foreground="{DynamicResource OnSurfaceBrush}" />
-                                                    <CheckBox Content="Flash" IsChecked="{Binding Flash}" Margin="0,0,12,0" Foreground="{DynamicResource OnSurfaceBrush}" />
-                                                    <CheckBox Content="Light" IsChecked="{Binding Light}" Margin="0,0,12,0" Foreground="{DynamicResource OnSurfaceBrush}" />
-                                                    <CheckBox Content="SpotLight" IsChecked="{Binding SpotLight}" Margin="0,0,12,0" Foreground="{DynamicResource OnSurfaceBrush}" />
-                                                    <CheckBox Content="Cast Shadows" IsChecked="{Binding CastShadows}" Foreground="{DynamicResource OnSurfaceBrush}" />
-                                                </WrapPanel>
-
-                                                <!-- Rotation -->
-                                                <TextBlock Text="Rotation" FontWeight="SemiBold"
-                                                           Foreground="{DynamicResource OnSurfaceBrush}" Margin="0,8,0,4" />
-                                                <controls:NumericSliderControl Label="Delta" Value="{Binding RotationDelta}" Min="-180" Max="180" Step="0.1" />
-                                                <controls:NumericSliderControl Label="Start" Value="{Binding RotationStart}" Min="-180" Max="180" Step="0.1" />
-                                                <controls:NumericSliderControl Label="Speed" Value="{Binding RotationSpeed}" Min="0" Max="20" Step="0.1" />
-                                                <Grid Margin="0,2">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="140" />
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="80" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <TextBlock Text="Sequencer" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
-                                                    <TextBox Grid.Column="1" Text="{Binding RotationSequencer, UpdateSourceTrigger=LostFocus}" FontFamily="Consolas" />
-                                                    <TextBox Grid.Column="2" Text="{Binding RotationMultiples, UpdateSourceTrigger=LostFocus}" Margin="4,0,0,0"
-                                                             HorizontalContentAlignment="Right" ToolTip="Multiples" />
-                                                </Grid>
-                                                <WrapPanel Margin="0,4">
-                                                    <CheckBox Content="Direction" IsChecked="{Binding RotationDirection}" Margin="0,0,12,0" Foreground="{DynamicResource OnSurfaceBrush}" />
-                                                    <CheckBox Content="Sync to BPM" IsChecked="{Binding RotationSyncToBpm}" Foreground="{DynamicResource OnSurfaceBrush}" />
-                                                </WrapPanel>
-
-                                                <!-- Flashiness -->
-                                                <TextBlock Text="Flashiness" FontWeight="SemiBold"
-                                                           Foreground="{DynamicResource OnSurfaceBrush}" Margin="0,8,0,4" />
-                                                <controls:NumericSliderControl Label="Delta" Value="{Binding FlashinessDelta}" Min="-180" Max="180" Step="0.1" />
-                                                <controls:NumericSliderControl Label="Start" Value="{Binding FlashinessStart}" Min="-180" Max="180" Step="0.1" />
-                                                <controls:NumericSliderControl Label="Speed" Value="{Binding FlashinessSpeed}" Min="0" Max="20" Step="0.1" />
-                                                <Grid Margin="0,2">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="140" />
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="80" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <TextBlock Text="Sequencer" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
-                                                    <TextBox Grid.Column="1" Text="{Binding FlashinessSequencer, UpdateSourceTrigger=LostFocus}" FontFamily="Consolas" />
-                                                    <TextBox Grid.Column="2" Text="{Binding FlashinessMultiples, UpdateSourceTrigger=LostFocus}" Margin="4,0,0,0"
-                                                             HorizontalContentAlignment="Right" ToolTip="Multiples" />
-                                                </Grid>
-                                                <WrapPanel Margin="0,4">
-                                                    <CheckBox Content="Direction" IsChecked="{Binding FlashinessDirection}" Margin="0,0,12,0" Foreground="{DynamicResource OnSurfaceBrush}" />
-                                                    <CheckBox Content="Sync to BPM" IsChecked="{Binding FlashinessSyncToBpm}" Foreground="{DynamicResource OnSurfaceBrush}" />
-                                                </WrapPanel>
-
-                                                <!-- Corona -->
-                                                <TextBlock Text="Corona" FontWeight="SemiBold"
-                                                           Foreground="{DynamicResource OnSurfaceBrush}" Margin="0,8,0,4" />
-                                                <controls:NumericSliderControl Label="Intensity" Value="{Binding CoronaIntensity}" Min="0" Max="200" Step="1" />
-                                                <controls:NumericSliderControl Label="Size" Value="{Binding CoronaSize}" Min="0" Max="10" Step="0.01" />
-                                                <controls:NumericSliderControl Label="Pull" Value="{Binding CoronaPull}" Min="0" Max="5" Step="0.01" />
-                                                <CheckBox Content="Face Camera" IsChecked="{Binding CoronaFaceCamera}" Margin="0,4"
-                                                          Foreground="{DynamicResource OnSurfaceBrush}" />
-                                            </StackPanel>
-                                        </Expander>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                                    ToolTip="Add Light (max 20)" FontWeight="Bold" />
+                            <Button Content="-" Width="28" Height="28" Padding="0" Margin="0,0,4,0"
+                                    Command="{Binding DataContext.RemoveSirenLightCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding DataContext.SelectedLight, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    ToolTip="Remove Light" FontWeight="Bold" />
+                            <Button Content="C" Width="28" Height="28" Padding="0"
+                                    Command="{Binding DataContext.CloneSirenLightCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding DataContext.SelectedLight, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    ToolTip="Clone Light" FontWeight="Bold" />
                         </StackPanel>
-                    </Expander>
+                    </StackPanel>
+                    <ListBox ItemsSource="{Binding Sirens}"
+                             SelectedItem="{Binding DataContext.SelectedLight, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                             Background="Transparent" BorderThickness="0" Margin="4,0">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" Margin="2">
+                                    <Border Width="14" Height="14" CornerRadius="2" Margin="0,0,6,0"
+                                            VerticalAlignment="Center"
+                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="Red" />
+                                            </Style>
+                                        </Border.Style>
+                                    </Border>
+                                    <TextBlock Text="{Binding Color, StringFormat='Light {0}'}" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource OnSurfaceBrush}" FontSize="11" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
 
-                </StackPanel>
+            <!-- Column 3: Detail Panel -->
+            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" Background="{DynamicResource BackgroundBrush}">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Siren Setting Properties (top) -->
+                    <StackPanel Grid.Row="0" DataContext="{Binding SelectedSiren}" Margin="0,0,0,16">
+                        <TextBlock Text="SIREN SETTING" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"
+                                   Foreground="{DynamicResource OnSurfaceVariantBrush}" />
+
+                        <!-- General -->
+                        <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="4" Padding="12" Margin="0,0,0,8">
+                            <StackPanel>
+                                <TextBlock Text="General" FontWeight="SemiBold" Foreground="{DynamicResource OnSurfaceBrush}" Margin="0,0,0,8" />
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="140" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="ID" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
+                                    <TextBox Grid.Column="1" Text="{Binding Id, UpdateSourceTrigger=LostFocus}" Width="80" HorizontalAlignment="Left" />
+                                </Grid>
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="140" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Name" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
+                                    <TextBox Grid.Column="1" Text="{Binding Name, UpdateSourceTrigger=LostFocus}" />
+                                </Grid>
+                                <controls:NumericSliderControl Label="Time Multiplier" Value="{Binding TimeMultiplier}" Min="0" Max="10" Step="0.1" Hint="Speed of all sequencers" />
+                                <controls:NumericSliderControl Label="Sequencer BPM" Value="{Binding SequencerBpm}" Min="1" Max="600" Step="1" Hint="Beats per minute for sequencer timing" />
+                                <controls:NumericSliderControl Label="Light Falloff Max" Value="{Binding LightFalloffMax}" Min="0" Max="100" Step="0.5" />
+                                <controls:NumericSliderControl Label="Light Falloff Exp" Value="{Binding LightFalloffExponent}" Min="0" Max="100" Step="0.5" />
+                                <controls:NumericSliderControl Label="Inner Cone" Value="{Binding LightInnerConeAngle}" Min="0" Max="90" Step="0.1" Hint="Degrees" />
+                                <controls:NumericSliderControl Label="Outer Cone" Value="{Binding LightOuterConeAngle}" Min="0" Max="180" Step="0.5" Hint="Degrees" />
+                                <controls:NumericSliderControl Label="Light Offset" Value="{Binding LightOffset}" Min="-10" Max="10" Step="0.01" />
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="140" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Texture" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
+                                    <TextBox Grid.Column="1" Text="{Binding TextureName, UpdateSourceTrigger=LostFocus}" FontFamily="Consolas" FontSize="11" />
+                                </Grid>
+                                <CheckBox Content="Use Real Lights" IsChecked="{Binding UseRealLights}" Margin="0,6"
+                                          Foreground="{DynamicResource OnSurfaceBrush}" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Head/Tail Sequencers with visual grids -->
+                        <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="4" Padding="12" Margin="0,0,0,8">
+                            <StackPanel>
+                                <TextBlock Text="Head/Tail Light Sequencers" FontWeight="SemiBold" Foreground="{DynamicResource OnSurfaceBrush}" Margin="0,0,0,8" />
+                                <controls:SequencerGridControl Label="Left Headlight" Value="{Binding LeftHeadLightSequencer}" Margin="0,0,0,6" />
+                                <controls:NumericSliderControl Label="  Multiples" Value="{Binding LeftHeadLightMultiples}" Min="0" Max="10" Step="1" />
+                                <controls:SequencerGridControl Label="Right Headlight" Value="{Binding RightHeadLightSequencer}" Margin="0,4,0,6" />
+                                <controls:NumericSliderControl Label="  Multiples" Value="{Binding RightHeadLightMultiples}" Min="0" Max="10" Step="1" />
+                                <controls:SequencerGridControl Label="Left Taillight" Value="{Binding LeftTailLightSequencer}" Margin="0,4,0,6" />
+                                <controls:NumericSliderControl Label="  Multiples" Value="{Binding LeftTailLightMultiples}" Min="0" Max="10" Step="1" />
+                                <controls:SequencerGridControl Label="Right Taillight" Value="{Binding RightTailLightSequencer}" Margin="0,4,0,6" />
+                                <controls:NumericSliderControl Label="  Multiples" Value="{Binding RightTailLightMultiples}" Min="0" Max="10" Step="1" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Selected Light Detail (bottom) -->
+                    <StackPanel Grid.Row="1" DataContext="{Binding SelectedLight}">
+                        <TextBlock Text="SELECTED LIGHT" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"
+                                   Foreground="{DynamicResource OnSurfaceVariantBrush}" />
+
+                        <!-- Light Properties -->
+                        <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="4" Padding="12" Margin="0,0,0,8">
+                            <StackPanel>
+                                <TextBlock Text="Light Properties" FontWeight="SemiBold" Foreground="{DynamicResource OnSurfaceBrush}" Margin="0,0,0,8" />
+                                <controls:SirenColorPickerControl Label="Color" ColorHex="{Binding Color}" Margin="0,0,0,4" />
+                                <controls:NumericSliderControl Label="Intensity" Value="{Binding Intensity}" Min="0" Max="10" Step="0.1" />
+                                <controls:NumericSliderControl Label="Light Group" Value="{Binding LightGroup}" Min="0" Max="255" Step="1" Hint="Groups lights for synchronized patterns" />
+                                <controls:NumericSliderControl Label="Scale Factor" Value="{Binding ScaleFactor}" Min="0" Max="10" Step="0.1" />
+                                <WrapPanel Margin="0,6">
+                                    <CheckBox Content="Rotate" IsChecked="{Binding Rotate}" Margin="0,0,12,4" Foreground="{DynamicResource OnSurfaceBrush}" />
+                                    <CheckBox Content="Scale" IsChecked="{Binding Scale}" Margin="0,0,12,4" Foreground="{DynamicResource OnSurfaceBrush}" />
+                                    <CheckBox Content="Flash" IsChecked="{Binding Flash}" Margin="0,0,12,4" Foreground="{DynamicResource OnSurfaceBrush}" />
+                                    <CheckBox Content="Light" IsChecked="{Binding Light}" Margin="0,0,12,4" Foreground="{DynamicResource OnSurfaceBrush}" />
+                                    <CheckBox Content="SpotLight" IsChecked="{Binding SpotLight}" Margin="0,0,12,4" Foreground="{DynamicResource OnSurfaceBrush}" />
+                                    <CheckBox Content="Cast Shadows" IsChecked="{Binding CastShadows}" Margin="0,0,12,4" Foreground="{DynamicResource OnSurfaceBrush}" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Rotation Sequencer -->
+                        <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="4" Padding="12" Margin="0,0,0,8">
+                            <StackPanel>
+                                <TextBlock Text="Rotation" FontWeight="SemiBold" Foreground="{DynamicResource OnSurfaceBrush}" Margin="0,0,0,8" />
+                                <controls:NumericSliderControl Label="Delta" Value="{Binding RotationDelta}" Min="-180" Max="180" Step="0.1" Hint="Degrees" />
+                                <controls:NumericSliderControl Label="Start" Value="{Binding RotationStart}" Min="-180" Max="180" Step="0.1" Hint="Degrees" />
+                                <controls:NumericSliderControl Label="Speed" Value="{Binding RotationSpeed}" Min="0" Max="20" Step="0.1" />
+                                <controls:SequencerGridControl Label="Sequencer" Value="{Binding RotationSequencer}" Margin="0,4,0,4" />
+                                <controls:NumericSliderControl Label="Multiples" Value="{Binding RotationMultiples}" Min="0" Max="10" Step="1" />
+                                <WrapPanel Margin="0,4">
+                                    <CheckBox Content="Direction" IsChecked="{Binding RotationDirection}" Margin="0,0,12,0" Foreground="{DynamicResource OnSurfaceBrush}" />
+                                    <CheckBox Content="Sync to BPM" IsChecked="{Binding RotationSyncToBpm}" Margin="0,0,12,0" Foreground="{DynamicResource OnSurfaceBrush}" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Flashiness Sequencer -->
+                        <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="4" Padding="12" Margin="0,0,0,8">
+                            <StackPanel>
+                                <TextBlock Text="Flashiness" FontWeight="SemiBold" Foreground="{DynamicResource OnSurfaceBrush}" Margin="0,0,0,8" />
+                                <controls:NumericSliderControl Label="Delta" Value="{Binding FlashinessDelta}" Min="-180" Max="180" Step="0.1" />
+                                <controls:NumericSliderControl Label="Start" Value="{Binding FlashinessStart}" Min="-180" Max="180" Step="0.1" />
+                                <controls:NumericSliderControl Label="Speed" Value="{Binding FlashinessSpeed}" Min="0" Max="20" Step="0.1" />
+                                <controls:SequencerGridControl Label="Sequencer" Value="{Binding FlashinessSequencer}" Margin="0,4,0,4" />
+                                <controls:NumericSliderControl Label="Multiples" Value="{Binding FlashinessMultiples}" Min="0" Max="10" Step="1" />
+                                <WrapPanel Margin="0,4">
+                                    <CheckBox Content="Direction" IsChecked="{Binding FlashinessDirection}" Margin="0,0,12,0" Foreground="{DynamicResource OnSurfaceBrush}" />
+                                    <CheckBox Content="Sync to BPM" IsChecked="{Binding FlashinessSyncToBpm}" Margin="0,0,12,0" Foreground="{DynamicResource OnSurfaceBrush}" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Corona -->
+                        <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="4" Padding="12" Margin="0,0,0,8">
+                            <StackPanel>
+                                <TextBlock Text="Corona" FontWeight="SemiBold" Foreground="{DynamicResource OnSurfaceBrush}" Margin="0,0,0,8" />
+                                <controls:NumericSliderControl Label="Intensity" Value="{Binding CoronaIntensity}" Min="0" Max="200" Step="1" />
+                                <controls:NumericSliderControl Label="Size" Value="{Binding CoronaSize}" Min="0" Max="10" Step="0.01" />
+                                <controls:NumericSliderControl Label="Pull" Value="{Binding CoronaPull}" Min="0" Max="5" Step="0.01" />
+                                <CheckBox Content="Face Camera" IsChecked="{Binding CoronaFaceCamera}" Margin="0,4"
+                                          Foreground="{DynamicResource OnSurfaceBrush}" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Grid>
             </ScrollViewer>
         </Grid>
     </Grid>

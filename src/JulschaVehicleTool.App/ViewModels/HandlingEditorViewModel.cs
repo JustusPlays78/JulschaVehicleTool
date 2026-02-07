@@ -41,6 +41,7 @@ public partial class HandlingEditorViewModel : ObservableObject
         catch (Exception ex)
         {
             StatusMessage = $"Error loading: {ex.Message}";
+            Handling = null;
             IsLoaded = false;
         }
     }

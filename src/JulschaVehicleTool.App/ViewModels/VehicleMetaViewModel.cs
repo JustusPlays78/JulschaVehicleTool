@@ -39,6 +39,7 @@ public partial class VehicleMetaViewModel : ObservableObject
         catch (Exception ex)
         {
             StatusMessage = $"Error: {ex.Message}";
+            Vehicle = null;
             IsLoaded = false;
         }
     }
@@ -54,7 +55,7 @@ public partial class VehicleMetaViewModel : ObservableObject
             if (dialog.ShowDialog() != true) return;
             path = dialog.FileName;
         }
-        try { _metaXmlService.SaveVehicleMeta(Vehicle, path); StatusMessage = $"Saved: {path}"; }
+        try { _metaXmlService.SaveVehicleMeta(Vehicle, path); _currentFilePath = path; StatusMessage = $"Saved: {path}"; }
         catch (Exception ex) { StatusMessage = $"Error: {ex.Message}"; }
     }
 }

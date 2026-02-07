@@ -10,11 +10,11 @@ none
 false
 TRACE;DEBUG;NET;NET8_0;NETCOREAPP;WINDOWS;WINDOWS7_0;NET5_0_OR_GREATER;NET6_0_OR_GREATER;NET7_0_OR_GREATER;NET8_0_OR_GREATER;NETCOREAPP3_0_OR_GREATER;NETCOREAPP3_1_OR_GREATER;WINDOWS7_0_OR_GREATER
 C:\Users\Julian.HomePC\Desktop\HCRP\Server\JulschaVehicleTool\src\JulschaVehicleTool.App\App.xaml
-10-303700299
+12-35477147
 222026106230
-21-772263517
+23917582718
 235-1160422951
-Controls\NumericSliderControl.xaml;Controls\Vector3EditorControl.xaml;Themes\DarkTheme.xaml;Views\CarVariationsView.xaml;Views\ExportView.xaml;Views\HandlingEditorView.xaml;Views\MainWindow.xaml;Views\ModelViewerView.xaml;Views\SirenEditorView.xaml;Views\VehicleMetaView.xaml;
+Controls\NumericSliderControl.xaml;Controls\SequencerGridControl.xaml;Controls\SirenColorPickerControl.xaml;Controls\Vector3EditorControl.xaml;Themes\DarkTheme.xaml;Views\CarVariationsView.xaml;Views\ExportView.xaml;Views\HandlingEditorView.xaml;Views\MainWindow.xaml;Views\ModelViewerView.xaml;Views\SirenEditorView.xaml;Views\VehicleMetaView.xaml;
 
 False
 

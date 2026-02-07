@@ -14,7 +14,9 @@ public class MetaXmlService
     public HandlingData LoadHandling(string filePath)
     {
         var doc = XDocument.Load(filePath);
-        var item = doc.Descendants("Item").First();
+        var item = doc.Descendants("Item").FirstOrDefault();
+        if (item == null)
+            return new HandlingData(); // empty template -> return defaults
         return ParseHandlingItem(item);
     }
 
@@ -190,8 +192,10 @@ public class MetaXmlService
     public CarVariationData LoadCarVariations(string filePath)
     {
         var doc = XDocument.Load(filePath);
-        var item = doc.Descendants("variationData").First().Element("Item");
-        if (item == null) throw new InvalidOperationException("No vehicle variation data found");
+        var variationData = doc.Descendants("variationData").FirstOrDefault()
+            ?? throw new InvalidOperationException($"No <variationData> element found in {Path.GetFileName(filePath)}. Is this a valid carvariations.meta?");
+        var item = variationData.Element("Item")
+            ?? throw new InvalidOperationException($"No <Item> element found in {Path.GetFileName(filePath)}.");
 
         var data = new CarVariationData
         {
@@ -478,7 +482,8 @@ public class MetaXmlService
     public VehicleMetaData LoadVehicleMeta(string filePath)
     {
         var doc = XDocument.Load(filePath);
-        var item = doc.Descendants("Item").First();
+        var item = doc.Descendants("Item").FirstOrDefault()
+            ?? throw new InvalidOperationException($"No <Item> element found in {Path.GetFileName(filePath)}. Is this a valid vehicles.meta?");
 
         return new VehicleMetaData
         {

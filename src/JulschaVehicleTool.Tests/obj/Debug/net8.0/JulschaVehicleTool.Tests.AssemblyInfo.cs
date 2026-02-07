@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("JulschaVehicleTool.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e3e83e3c7f5c5e8affc790973fdeee5a074c58b4")]
 [assembly: System.Reflection.AssemblyProductAttribute("JulschaVehicleTool.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("JulschaVehicleTool.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
