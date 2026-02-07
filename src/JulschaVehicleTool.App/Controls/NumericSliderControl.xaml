@@ -1,0 +1,35 @@
+<UserControl x:Class="JulschaVehicleTool.App.Controls.NumericSliderControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Root">
+    <Grid Margin="0,2">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="180" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="80" />
+        </Grid.ColumnDefinitions>
+
+        <TextBlock Grid.Column="0"
+                   Text="{Binding Label, ElementName=Root}"
+                   VerticalAlignment="Center"
+                   Foreground="{DynamicResource OnSurfaceVariantBrush}"
+                   FontSize="12"
+                   ToolTip="{Binding Hint, ElementName=Root}" />
+
+        <Slider Grid.Column="1"
+                Minimum="{Binding Min, ElementName=Root}"
+                Maximum="{Binding Max, ElementName=Root}"
+                Value="{Binding Value, ElementName=Root, Mode=TwoWay}"
+                SmallChange="{Binding Step, ElementName=Root}"
+                LargeChange="{Binding Step, ElementName=Root}"
+                VerticalAlignment="Center"
+                Margin="8,0" />
+
+        <TextBox Grid.Column="2"
+                 Text="{Binding Value, ElementName=Root, Mode=TwoWay, StringFormat=F4, UpdateSourceTrigger=LostFocus}"
+                 VerticalAlignment="Center"
+                 HorizontalContentAlignment="Right"
+                 FontSize="11"
+                 Padding="4,2" />
+    </Grid>
+</UserControl>

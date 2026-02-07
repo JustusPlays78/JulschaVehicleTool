@@ -1,0 +1,219 @@
+<UserControl x:Class="JulschaVehicleTool.App.Views.VehicleMetaView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:JulschaVehicleTool.App.Controls"
+             xmlns:conv="clr-namespace:JulschaVehicleTool.App.Converters">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis" />
+    </UserControl.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Toolbar -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="8">
+            <Button Content="Load" Command="{Binding LoadFileCommand}" Padding="12,4" Margin="0,0,4,0" />
+            <Button Content="Save" Command="{Binding SaveFileCommand}" Padding="12,4" Margin="0,0,12,0" />
+            <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center"
+                       Foreground="{DynamicResource OnSurfaceVariantBrush}" FontSize="11" />
+        </StackPanel>
+
+        <!-- Placeholder when no data loaded -->
+        <TextBlock Grid.Row="1" Text="No vehicles.meta loaded. Use Load or File > Import."
+                   Style="{DynamicResource PlaceholderTextStyle}"
+                   Visibility="{Binding IsLoaded, Converter={StaticResource InverseBoolToVis}}"
+                   IsHitTestVisible="False" />
+
+        <!-- Editor -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                      Visibility="{Binding IsLoaded, Converter={StaticResource BoolToVis}}">
+            <StackPanel Margin="16">
+                <TextBlock Text="{Binding Vehicle.ModelName, StringFormat='Vehicle: {0}'}"
+                           FontSize="18" FontWeight="Bold"
+                           Foreground="{DynamicResource OnSurfaceBrush}" Margin="0,0,0,16" />
+
+                <!-- Identity -->
+                <Expander Header="Identity" IsExpanded="True" Margin="0,0,0,8">
+                    <StackPanel Margin="8,4">
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Model Name" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Text="{Binding Vehicle.ModelName, UpdateSourceTrigger=LostFocus}" />
+                        </Grid>
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="TXD Name" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Text="{Binding Vehicle.TxdName, UpdateSourceTrigger=LostFocus}" />
+                        </Grid>
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Handling ID" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Text="{Binding Vehicle.HandlingId, UpdateSourceTrigger=LostFocus}" />
+                        </Grid>
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Game Name" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Text="{Binding Vehicle.GameName, UpdateSourceTrigger=LostFocus}" />
+                        </Grid>
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Vehicle Make Name" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Text="{Binding Vehicle.VehicleMakeName, UpdateSourceTrigger=LostFocus}" />
+                        </Grid>
+                    </StackPanel>
+                </Expander>
+
+                <!-- Classification -->
+                <Expander Header="Classification" Margin="0,0,0,8">
+                    <StackPanel Margin="8,4">
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Type" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Text="{Binding Vehicle.Type, UpdateSourceTrigger=LostFocus}" />
+                        </Grid>
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Vehicle Class" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Text="{Binding Vehicle.VehicleClass, UpdateSourceTrigger=LostFocus}" />
+                        </Grid>
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Wheel Type" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Text="{Binding Vehicle.WheelType, UpdateSourceTrigger=LostFocus}" />
+                        </Grid>
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Plate Type" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Text="{Binding Vehicle.PlateType, UpdateSourceTrigger=LostFocus}" />
+                        </Grid>
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Dashboard Type" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Text="{Binding Vehicle.DashboardType, UpdateSourceTrigger=LostFocus}" />
+                        </Grid>
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Layout" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Text="{Binding Vehicle.Layout, UpdateSourceTrigger=LostFocus}" />
+                        </Grid>
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Swankness" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Text="{Binding Vehicle.Swankness, UpdateSourceTrigger=LostFocus}" />
+                        </Grid>
+                    </StackPanel>
+                </Expander>
+
+                <!-- Physics -->
+                <Expander Header="Physics / Limits" Margin="0,0,0,8">
+                    <StackPanel Margin="8,4">
+                        <controls:NumericSliderControl Label="Mass" Value="{Binding Vehicle.Mass}" Min="0" Max="50000" Step="50" />
+                        <controls:NumericSliderControl Label="Max Passengers" Value="{Binding Vehicle.MaxPassengers}" Min="0" Max="15" Step="1" />
+                        <controls:NumericSliderControl Label="Percent Submerged" Value="{Binding Vehicle.PercentSubmergedLevel}" Min="0" Max="100" Step="1" />
+                        <controls:NumericSliderControl Label="Roof Dismount" Value="{Binding Vehicle.PrevehicleConvRoofDismount}" Min="-10" Max="10" Step="0.1" />
+                        <controls:NumericSliderControl Label="Search Light" Value="{Binding Vehicle.SearchLight}" Min="0" Max="10" Step="0.1" />
+                        <controls:NumericSliderControl Label="Diffuse Color" Value="{Binding Vehicle.DiffuseColor}" Min="0" Max="255" Step="1" />
+                    </StackPanel>
+                </Expander>
+
+                <!-- Audio -->
+                <Expander Header="Audio" Margin="0,0,0,8">
+                    <StackPanel Margin="8,4">
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Audio Name Hash" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Text="{Binding Vehicle.AudioNameHash, UpdateSourceTrigger=LostFocus}" />
+                        </Grid>
+                    </StackPanel>
+                </Expander>
+
+                <!-- Flags -->
+                <Expander Header="Flags" Margin="0,0,0,8">
+                    <StackPanel Margin="8,4">
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Flags" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Text="{Binding Vehicle.Flags, UpdateSourceTrigger=LostFocus}" FontFamily="Consolas" />
+                        </Grid>
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Str Flags" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Text="{Binding Vehicle.StrFlags, UpdateSourceTrigger=LostFocus}" FontFamily="Consolas" />
+                        </Grid>
+                    </StackPanel>
+                </Expander>
+
+                <!-- Extras -->
+                <Expander Header="Extras" Margin="0,0,0,8">
+                    <StackPanel Margin="8,4">
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Rewards" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Text="{Binding Vehicle.Rewards, UpdateSourceTrigger=LostFocus}" />
+                        </Grid>
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Cinematic Part Camera" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Text="{Binding Vehicle.CinematicPartCamera, UpdateSourceTrigger=LostFocus}" />
+                        </Grid>
+                    </StackPanel>
+                </Expander>
+
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

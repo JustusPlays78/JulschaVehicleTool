@@ -1,0 +1,165 @@
+<UserControl x:Class="JulschaVehicleTool.App.Views.CarVariationsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:JulschaVehicleTool.App.Controls"
+             xmlns:conv="clr-namespace:JulschaVehicleTool.App.Converters">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis" />
+    </UserControl.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Toolbar -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="8">
+            <Button Content="Load" Command="{Binding LoadFileCommand}" Padding="12,4" Margin="0,0,4,0" />
+            <Button Content="Save" Command="{Binding SaveFileCommand}" Padding="12,4" Margin="0,0,12,0" />
+            <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center"
+                       Foreground="{DynamicResource OnSurfaceVariantBrush}" FontSize="11" />
+        </StackPanel>
+
+        <!-- Placeholder when no data loaded -->
+        <TextBlock Grid.Row="1" Text="No carvariations.meta loaded. Use Load or File > Import."
+                   Style="{DynamicResource PlaceholderTextStyle}"
+                   Visibility="{Binding IsLoaded, Converter={StaticResource InverseBoolToVis}}"
+                   IsHitTestVisible="False" />
+
+        <!-- Editor -->
+        <Grid Grid.Row="1" Visibility="{Binding IsLoaded, Converter={StaticResource BoolToVis}}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Header -->
+            <StackPanel Grid.Row="0" Margin="16,16,16,8">
+                <TextBlock Text="{Binding Variation.ModelName, StringFormat='Car Variations: {0}'}"
+                           FontSize="18" FontWeight="Bold"
+                           Foreground="{DynamicResource OnSurfaceBrush}" />
+
+                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                    <TextBlock Text="Light Settings ID:" Foreground="{DynamicResource OnSurfaceVariantBrush}"
+                               VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <TextBox Text="{Binding Variation.LightSettings, UpdateSourceTrigger=LostFocus}"
+                             Width="80" HorizontalContentAlignment="Right" />
+
+                    <TextBlock Text="Siren Settings ID:" Foreground="{DynamicResource OnSurfaceVariantBrush}"
+                               VerticalAlignment="Center" Margin="24,0,8,0" />
+                    <TextBox Text="{Binding Variation.SirenSettings, UpdateSourceTrigger=LostFocus}"
+                             Width="80" HorizontalContentAlignment="Right" />
+                </StackPanel>
+            </StackPanel>
+
+            <!-- Content -->
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="16,0,16,16">
+
+                    <!-- Color Combinations -->
+                    <Expander Header="Color Combinations" IsExpanded="True" Margin="0,0,0,8">
+                        <StackPanel Margin="8,4">
+                            <Button Content="Add Color Combination" Command="{Binding AddColorCombinationCommand}"
+                                    HorizontalAlignment="Left" Margin="0,0,0,8" Padding="12,4" />
+
+                            <ItemsControl ItemsSource="{Binding Variation.Colors}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="{DynamicResource SurfaceVariantBrush}" BorderThickness="1"
+                                                CornerRadius="4" Padding="12" Margin="0,0,0,8">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <WrapPanel Grid.Column="0">
+                                                    <StackPanel Margin="0,0,16,4">
+                                                        <TextBlock Text="Primary" FontSize="11"
+                                                                   Foreground="{DynamicResource OnSurfaceVariantBrush}" />
+                                                        <TextBox Text="{Binding PrimaryColor, UpdateSourceTrigger=LostFocus}"
+                                                                 Width="60" HorizontalContentAlignment="Right" />
+                                                    </StackPanel>
+                                                    <StackPanel Margin="0,0,16,4">
+                                                        <TextBlock Text="Secondary" FontSize="11"
+                                                                   Foreground="{DynamicResource OnSurfaceVariantBrush}" />
+                                                        <TextBox Text="{Binding SecondaryColor, UpdateSourceTrigger=LostFocus}"
+                                                                 Width="60" HorizontalContentAlignment="Right" />
+                                                    </StackPanel>
+                                                    <StackPanel Margin="0,0,16,4">
+                                                        <TextBlock Text="Pearlescent" FontSize="11"
+                                                                   Foreground="{DynamicResource OnSurfaceVariantBrush}" />
+                                                        <TextBox Text="{Binding PearlescentColor, UpdateSourceTrigger=LostFocus}"
+                                                                 Width="60" HorizontalContentAlignment="Right" />
+                                                    </StackPanel>
+                                                    <StackPanel Margin="0,0,16,4">
+                                                        <TextBlock Text="Rim" FontSize="11"
+                                                                   Foreground="{DynamicResource OnSurfaceVariantBrush}" />
+                                                        <TextBox Text="{Binding RimColor, UpdateSourceTrigger=LostFocus}"
+                                                                 Width="60" HorizontalContentAlignment="Right" />
+                                                    </StackPanel>
+                                                    <StackPanel Margin="0,0,16,4">
+                                                        <TextBlock Text="Interior Trim" FontSize="11"
+                                                                   Foreground="{DynamicResource OnSurfaceVariantBrush}" />
+                                                        <TextBox Text="{Binding InteriorTrimColor, UpdateSourceTrigger=LostFocus}"
+                                                                 Width="60" HorizontalContentAlignment="Right" />
+                                                    </StackPanel>
+                                                    <StackPanel Margin="0,0,16,4">
+                                                        <TextBlock Text="Dashboard" FontSize="11"
+                                                                   Foreground="{DynamicResource OnSurfaceVariantBrush}" />
+                                                        <TextBox Text="{Binding DashboardColor, UpdateSourceTrigger=LostFocus}"
+                                                                 Width="60" HorizontalContentAlignment="Right" />
+                                                    </StackPanel>
+                                                </WrapPanel>
+
+                                                <Button Grid.Column="1" Content="X" VerticalAlignment="Top"
+                                                        Command="{Binding DataContext.RemoveColorCombinationCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}"
+                                                        Padding="6,2" FontSize="11" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Expander>
+
+                    <!-- Kits -->
+                    <Expander Header="Kits" Margin="0,0,0,8">
+                        <StackPanel Margin="8,4">
+                            <ItemsControl ItemsSource="{Binding Variation.Kits}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" Foreground="{DynamicResource OnSurfaceBrush}"
+                                                   Margin="0,2" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Expander>
+
+                    <!-- Plate Probabilities -->
+                    <Expander Header="Plate Probabilities" Margin="0,0,0,8">
+                        <StackPanel Margin="8,4">
+                            <ItemsControl ItemsSource="{Binding Variation.PlateProbabilities}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" Margin="0,2">
+                                            <TextBlock Text="{Binding Name}" Width="160"
+                                                       Foreground="{DynamicResource OnSurfaceVariantBrush}"
+                                                       VerticalAlignment="Center" />
+                                            <TextBox Text="{Binding Value, UpdateSourceTrigger=LostFocus}"
+                                                     Width="60" HorizontalContentAlignment="Right" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Expander>
+
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</UserControl>

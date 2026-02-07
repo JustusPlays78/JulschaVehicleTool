@@ -1,0 +1,134 @@
+<Window x:Class="JulschaVehicleTool.App.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:JulschaVehicleTool.App.ViewModels"
+        xmlns:views="clr-namespace:JulschaVehicleTool.App.Views"
+        Title="{Binding TitleSuffix, StringFormat='Julscha Vehicle Tool{0}'}"
+        Width="1280" Height="800"
+        MinWidth="900" MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource BackgroundBrush}">
+
+    <Window.Resources>
+        <!-- DataTemplates for View switching -->
+        <DataTemplate DataType="{x:Type vm:ModelViewerViewModel}">
+            <views:ModelViewerView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:HandlingEditorViewModel}">
+            <views:HandlingEditorView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:CarVariationsViewModel}">
+            <views:CarVariationsView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SirenEditorViewModel}">
+            <views:SirenEditorView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:VehicleMetaViewModel}">
+            <views:VehicleMetaView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ExportViewModel}">
+            <views:ExportView />
+        </DataTemplate>
+
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </Window.Resources>
+
+    <Window.InputBindings>
+        <KeyBinding Gesture="Ctrl+N" Command="{Binding NewProjectCommand}" />
+        <KeyBinding Gesture="Ctrl+O" Command="{Binding OpenProjectCommand}" />
+        <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveProjectCommand}" />
+        <KeyBinding Gesture="Ctrl+Shift+S" Command="{Binding SaveProjectAsCommand}" />
+    </Window.InputBindings>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Title Bar / Menu -->
+        <Border Grid.Row="0" Background="{DynamicResource SurfaceVariantBrush}" Padding="0">
+            <DockPanel>
+                <Menu DockPanel.Dock="Left" Background="Transparent" Foreground="{DynamicResource OnSurfaceBrush}">
+                    <MenuItem Header="_File">
+                        <MenuItem Header="_New Project" Command="{Binding NewProjectCommand}" InputGestureText="Ctrl+N" />
+                        <MenuItem Header="_Open Project" Command="{Binding OpenProjectCommand}" InputGestureText="Ctrl+O" />
+                        <MenuItem Header="_Save Project" Command="{Binding SaveProjectCommand}" InputGestureText="Ctrl+S" />
+                        <MenuItem Header="Save Project _As..." Command="{Binding SaveProjectAsCommand}" InputGestureText="Ctrl+Shift+S" />
+                        <Separator />
+                        <MenuItem Header="_Recent Projects"
+                                  ItemsSource="{Binding RecentProjects}">
+                            <MenuItem.ItemContainerStyle>
+                                <Style TargetType="MenuItem">
+                                    <Setter Property="Header" Value="{Binding DisplayName}" />
+                                    <Setter Property="ToolTip" Value="{Binding FilePath}" />
+                                    <Setter Property="Command" Value="{Binding DataContext.OpenRecentProjectCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                    <Setter Property="CommandParameter" Value="{Binding FilePath}" />
+                                </Style>
+                            </MenuItem.ItemContainerStyle>
+                        </MenuItem>
+                        <Separator />
+                        <MenuItem Header="E_xit" Click="OnExitClick" InputGestureText="Alt+F4" />
+                    </MenuItem>
+                    <MenuItem Header="_Presets">
+                        <MenuItem Header="Sports Car" Command="{Binding ApplyHandlingPresetCommand}" CommandParameter="Sports Car" />
+                        <MenuItem Header="Muscle Car" Command="{Binding ApplyHandlingPresetCommand}" CommandParameter="Muscle Car" />
+                        <MenuItem Header="SUV / Truck" Command="{Binding ApplyHandlingPresetCommand}" CommandParameter="SUV / Truck" />
+                        <MenuItem Header="Motorcycle" Command="{Binding ApplyHandlingPresetCommand}" CommandParameter="Motorcycle" />
+                        <MenuItem Header="Boat" Command="{Binding ApplyHandlingPresetCommand}" CommandParameter="Boat" />
+                        <MenuItem Header="Helicopter" Command="{Binding ApplyHandlingPresetCommand}" CommandParameter="Helicopter" />
+                    </MenuItem>
+                </Menu>
+                <TextBlock Text="{Binding TitleSuffix, StringFormat='Julscha Vehicle Tool{0}'}"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"
+                           FontSize="13" FontWeight="SemiBold"
+                           Foreground="{DynamicResource OnSurfaceBrush}" />
+            </DockPanel>
+        </Border>
+
+        <!-- Main Content Area -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="160" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Navigation Rail -->
+            <ListBox Grid.Column="0"
+                     ItemsSource="{Binding NavigationItems}"
+                     SelectedItem="{Binding SelectedNavItem}"
+                     Style="{DynamicResource NavRailListBox}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Label}"
+                                   FontSize="13"
+                                   Margin="16,0,0,0"
+                                   VerticalAlignment="Center"
+                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <!-- Content Area -->
+            <ContentControl Grid.Column="1"
+                            Content="{Binding CurrentViewModel}" />
+        </Grid>
+
+        <!-- Status Bar -->
+        <StatusBar Grid.Row="2" Style="{DynamicResource StatusBarStyle}">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusText}" />
+            </StatusBarItem>
+            <Separator />
+            <StatusBarItem>
+                <TextBlock Text="{Binding VehicleName, StringFormat='Vehicle: {0}'}" />
+            </StatusBarItem>
+            <Separator />
+            <StatusBarItem Visibility="{Binding IsDirty, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="Modified" Foreground="{DynamicResource ErrorBrush}" />
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</Window>

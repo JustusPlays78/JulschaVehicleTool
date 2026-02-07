@@ -1,0 +1,168 @@
+<UserControl x:Class="JulschaVehicleTool.App.Views.HandlingEditorView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:JulschaVehicleTool.App.Controls"
+             xmlns:conv="clr-namespace:JulschaVehicleTool.App.Converters">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis" />
+    </UserControl.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Toolbar -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="8">
+            <Button Content="Load" Command="{Binding LoadFileCommand}" Padding="12,4" Margin="0,0,4,0" />
+            <Button Content="Save" Command="{Binding SaveFileCommand}" Padding="12,4" Margin="0,0,4,0" />
+            <Button Content="Save As" Command="{Binding SaveFileAsCommand}" Padding="12,4" Margin="0,0,12,0" />
+            <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center"
+                       Foreground="{DynamicResource OnSurfaceVariantBrush}" FontSize="11" />
+        </StackPanel>
+
+        <!-- Placeholder when no data loaded -->
+        <TextBlock Grid.Row="1" Text="No handling.meta loaded. Use Load or File > Import."
+                   Style="{DynamicResource PlaceholderTextStyle}"
+                   Visibility="{Binding IsLoaded, Converter={StaticResource InverseBoolToVis}}"
+                   IsHitTestVisible="False" />
+
+        <!-- Editor -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                      Visibility="{Binding IsLoaded, Converter={StaticResource BoolToVis}}">
+            <StackPanel Margin="16">
+                <TextBlock Text="{Binding Handling.HandlingName, StringFormat='Handling: {0}'}"
+                           FontSize="18" FontWeight="Bold"
+                           Foreground="{DynamicResource OnSurfaceBrush}" Margin="0,0,0,16" />
+
+                <!-- Physical -->
+                <Expander Header="Physical Properties" IsExpanded="True" Margin="0,0,0,8">
+                    <StackPanel Margin="8,4">
+                        <controls:NumericSliderControl Label="Mass (kg)" Value="{Binding Handling.FMass}" Min="0" Max="50000" Step="50" />
+                        <controls:NumericSliderControl Label="Initial Drag Coeff" Value="{Binding Handling.FInitialDragCoeff}" Min="0" Max="120" Step="0.1" />
+                        <controls:NumericSliderControl Label="Down Force Modifier" Value="{Binding Handling.FDownForceModifier}" Min="0" Max="100" Step="0.1" />
+                        <controls:NumericSliderControl Label="Percent Submerged" Value="{Binding Handling.FPercentSubmerged}" Min="0" Max="100" Step="1" />
+                        <controls:Vector3EditorControl Label="Centre of Mass Offset" Value="{Binding Handling.VecCentreOfMassOffset}" />
+                        <controls:Vector3EditorControl Label="Inertia Multiplier" Value="{Binding Handling.VecInertiaMultiplier}" />
+                    </StackPanel>
+                </Expander>
+
+                <!-- Transmission -->
+                <Expander Header="Transmission" Margin="0,0,0,8">
+                    <StackPanel Margin="8,4">
+                        <controls:NumericSliderControl Label="Drive Bias Front" Value="{Binding Handling.FDriveBiasFront}" Min="0" Max="1" Step="0.01"
+                                                        Hint="0.0=RWD, 1.0=FWD, 0.5=AWD" />
+                        <controls:NumericSliderControl Label="Drive Gears" Value="{Binding Handling.NInitialDriveGears}" Min="1" Max="10" Step="1" />
+                        <controls:NumericSliderControl Label="Drive Force" Value="{Binding Handling.FInitialDriveForce}" Min="0" Max="5" Step="0.01" />
+                        <controls:NumericSliderControl Label="Drive Inertia" Value="{Binding Handling.FDriveInertia}" Min="0" Max="5" Step="0.01" />
+                        <controls:NumericSliderControl Label="Clutch Up Shift" Value="{Binding Handling.FClutchChangeRateScaleUpShift}" Min="0" Max="10" Step="0.1" />
+                        <controls:NumericSliderControl Label="Clutch Down Shift" Value="{Binding Handling.FClutchChangeRateScaleDownShift}" Min="0" Max="10" Step="0.1" />
+                        <controls:NumericSliderControl Label="Max Flat Velocity" Value="{Binding Handling.FInitialDriveMaxFlatVel}" Min="0" Max="500" Step="1" />
+                    </StackPanel>
+                </Expander>
+
+                <!-- Braking -->
+                <Expander Header="Braking" Margin="0,0,0,8">
+                    <StackPanel Margin="8,4">
+                        <controls:NumericSliderControl Label="Brake Force" Value="{Binding Handling.FBrakeForce}" Min="0" Max="10" Step="0.01" />
+                        <controls:NumericSliderControl Label="Brake Bias Front" Value="{Binding Handling.FBrakeBiasFront}" Min="0" Max="1" Step="0.01" />
+                        <controls:NumericSliderControl Label="Handbrake Force" Value="{Binding Handling.FHandBrakeForce}" Min="0" Max="10" Step="0.01" />
+                    </StackPanel>
+                </Expander>
+
+                <!-- Steering -->
+                <Expander Header="Steering" Margin="0,0,0,8">
+                    <StackPanel Margin="8,4">
+                        <controls:NumericSliderControl Label="Steering Lock" Value="{Binding Handling.FSteeringLock}" Min="0" Max="90" Step="0.5" />
+                    </StackPanel>
+                </Expander>
+
+                <!-- Traction -->
+                <Expander Header="Traction" Margin="0,0,0,8">
+                    <StackPanel Margin="8,4">
+                        <controls:NumericSliderControl Label="Traction Curve Max" Value="{Binding Handling.FTractionCurveMax}" Min="0" Max="5" Step="0.01" />
+                        <controls:NumericSliderControl Label="Traction Curve Min" Value="{Binding Handling.FTractionCurveMin}" Min="0" Max="5" Step="0.01" />
+                        <controls:NumericSliderControl Label="Traction Curve Lateral" Value="{Binding Handling.FTractionCurveLateral}" Min="0" Max="50" Step="0.1" />
+                        <controls:NumericSliderControl Label="Traction Spring Delta Max" Value="{Binding Handling.FTractionSpringDeltaMax}" Min="0" Max="1" Step="0.01" />
+                        <controls:NumericSliderControl Label="Low Speed Traction Loss" Value="{Binding Handling.FLowSpeedTractionLossMult}" Min="0" Max="5" Step="0.01" />
+                        <controls:NumericSliderControl Label="Camber Stiffness" Value="{Binding Handling.FCamberStiffnesss}" Min="0" Max="1" Step="0.01" />
+                        <controls:NumericSliderControl Label="Traction Bias Front" Value="{Binding Handling.FTractionBiasFront}" Min="0" Max="1" Step="0.01" />
+                        <controls:NumericSliderControl Label="Traction Loss Mult" Value="{Binding Handling.FTractionLossMult}" Min="0" Max="5" Step="0.01" />
+                    </StackPanel>
+                </Expander>
+
+                <!-- Suspension -->
+                <Expander Header="Suspension" Margin="0,0,0,8">
+                    <StackPanel Margin="8,4">
+                        <controls:NumericSliderControl Label="Suspension Force" Value="{Binding Handling.FSuspensionForce}" Min="0" Max="10" Step="0.01" />
+                        <controls:NumericSliderControl Label="Compression Damp" Value="{Binding Handling.FSuspensionCompDamp}" Min="0" Max="10" Step="0.01" />
+                        <controls:NumericSliderControl Label="Rebound Damp" Value="{Binding Handling.FSuspensionReboundDamp}" Min="0" Max="10" Step="0.01" />
+                        <controls:NumericSliderControl Label="Upper Limit" Value="{Binding Handling.FSuspensionUpperLimit}" Min="-1" Max="1" Step="0.01" />
+                        <controls:NumericSliderControl Label="Lower Limit" Value="{Binding Handling.FSuspensionLowerLimit}" Min="-1" Max="1" Step="0.01" />
+                        <controls:NumericSliderControl Label="Suspension Raise" Value="{Binding Handling.FSuspensionRaise}" Min="-1" Max="1" Step="0.01" />
+                        <controls:NumericSliderControl Label="Bias Front" Value="{Binding Handling.FSuspensionBiasFront}" Min="0" Max="1" Step="0.01" />
+                        <controls:NumericSliderControl Label="Anti Roll Bar Force" Value="{Binding Handling.FAntiRollBarForce}" Min="0" Max="10" Step="0.01" />
+                        <controls:NumericSliderControl Label="Anti Roll Bias Front" Value="{Binding Handling.FAntiRollBarBiasFront}" Min="0" Max="1" Step="0.01" />
+                        <controls:NumericSliderControl Label="Roll Centre Height Front" Value="{Binding Handling.FRollCentreHeightFront}" Min="-1" Max="1" Step="0.01" />
+                        <controls:NumericSliderControl Label="Roll Centre Height Rear" Value="{Binding Handling.FRollCentreHeightRear}" Min="-1" Max="1" Step="0.01" />
+                    </StackPanel>
+                </Expander>
+
+                <!-- Damage -->
+                <Expander Header="Damage" Margin="0,0,0,8">
+                    <StackPanel Margin="8,4">
+                        <controls:NumericSliderControl Label="Collision Damage" Value="{Binding Handling.FCollisionDamageMult}" Min="0" Max="10" Step="0.01" />
+                        <controls:NumericSliderControl Label="Weapon Damage" Value="{Binding Handling.FWeaponDamageMult}" Min="0" Max="10" Step="0.01" />
+                        <controls:NumericSliderControl Label="Deformation Damage" Value="{Binding Handling.FDeformationDamageMult}" Min="0" Max="10" Step="0.01" />
+                        <controls:NumericSliderControl Label="Engine Damage" Value="{Binding Handling.FEngineDamageMult}" Min="0" Max="10" Step="0.01" />
+                        <controls:NumericSliderControl Label="Petrol Tank Volume" Value="{Binding Handling.FPetrolTankVolume}" Min="0" Max="200" Step="1" />
+                        <controls:NumericSliderControl Label="Oil Volume" Value="{Binding Handling.FOilVolume}" Min="0" Max="50" Step="0.5" />
+                    </StackPanel>
+                </Expander>
+
+                <!-- Misc -->
+                <Expander Header="Miscellaneous" Margin="0,0,0,8">
+                    <StackPanel Margin="8,4">
+                        <controls:NumericSliderControl Label="Seat Offset X" Value="{Binding Handling.FSeatOffsetDistX}" Min="-2" Max="2" Step="0.01" />
+                        <controls:NumericSliderControl Label="Seat Offset Y" Value="{Binding Handling.FSeatOffsetDistY}" Min="-2" Max="2" Step="0.01" />
+                        <controls:NumericSliderControl Label="Seat Offset Z" Value="{Binding Handling.FSeatOffsetDistZ}" Min="-2" Max="2" Step="0.01" />
+                        <controls:NumericSliderControl Label="Monetary Value" Value="{Binding Handling.NMonetaryValue}" Min="0" Max="10000000" Step="1000" />
+                        <Grid Margin="0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Model Flags" Foreground="{DynamicResource OnSurfaceVariantBrush}" FontSize="12" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Text="{Binding Handling.StrModelFlags, UpdateSourceTrigger=LostFocus}" FontFamily="Consolas" />
+                        </Grid>
+                        <Grid Margin="0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Handling Flags" Foreground="{DynamicResource OnSurfaceVariantBrush}" FontSize="12" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Text="{Binding Handling.StrHandlingFlags, UpdateSourceTrigger=LostFocus}" FontFamily="Consolas" />
+                        </Grid>
+                        <Grid Margin="0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Damage Flags" Foreground="{DynamicResource OnSurfaceVariantBrush}" FontSize="12" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Text="{Binding Handling.StrDamageFlags, UpdateSourceTrigger=LostFocus}" FontFamily="Consolas" />
+                        </Grid>
+                        <Grid Margin="0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="AI Handling" Foreground="{DynamicResource OnSurfaceVariantBrush}" FontSize="12" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Text="{Binding Handling.AiHandling, UpdateSourceTrigger=LostFocus}" />
+                        </Grid>
+                    </StackPanel>
+                </Expander>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>
