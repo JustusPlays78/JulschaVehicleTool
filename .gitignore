@@ -7,6 +7,7 @@ x64/
 x86/
 build/
 bld/
+publish/
 
 # Visual Studio
 .vs/

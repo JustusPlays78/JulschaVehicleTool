@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -34,6 +35,12 @@ public partial class MainWindowViewModel : ObservableObject
 
     // Model cache for 3D viewer
     private readonly Dictionary<string, VehicleModelData> _modelCache = new();
+
+    // Dirty tracking — subscribed data objects
+    private readonly List<INotifyPropertyChanged> _dirtySubscriptions = new();
+
+    // Flag to suppress selection-change logic during tree rebuild
+    private bool _isRebuildingTree;
 
     // State
     private Project? _currentProject;
@@ -131,10 +138,26 @@ public partial class MainWindowViewModel : ObservableObject
         CurrentViewModel = _welcomeVm;
     }
 
+    #region Debug Logging
+
+    private static void Log(string message)
+    {
+        var timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
+        Console.WriteLine($"[{timestamp}] {message}");
+        System.Diagnostics.Debug.WriteLine($"[{timestamp}] {message}");
+    }
+
+    #endregion
+
     #region Tree Selection
 
     partial void OnSelectedTreeNodeChanged(TreeNodeViewModel? value)
     {
+        Log($"[TreeSelect] Node: {value?.DisplayName ?? "null"} (type: {value?.GetType().Name ?? "null"}), rebuilding={_isRebuildingTree}");
+
+        // Skip during tree rebuild — SelectVehicleInTree will handle selection
+        if (_isRebuildingTree) return;
+
         // Auto-save when switching away from a vehicle
         AutoSave();
 
@@ -183,8 +206,29 @@ public partial class MainWindowViewModel : ObservableObject
 
     #region Vehicle Loading
 
+    private void UnsubscribeDirtyTracking()
+    {
+        foreach (var obj in _dirtySubscriptions)
+            obj.PropertyChanged -= OnDataPropertyChanged;
+        _dirtySubscriptions.Clear();
+    }
+
+    private void SubscribeDirtyTracking(INotifyPropertyChanged? obj)
+    {
+        if (obj == null) return;
+        obj.PropertyChanged += OnDataPropertyChanged;
+        _dirtySubscriptions.Add(obj);
+    }
+
+    private void OnDataPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (_currentProject != null)
+            _currentProject.IsDirty = true;
+    }
+
     private void LoadVehicleIntoEditors(Vehicle vehicle)
     {
+        UnsubscribeDirtyTracking();
         // Handling
         if (vehicle.Handling != null)
         {
@@ -244,6 +288,13 @@ public partial class MainWindowViewModel : ObservableObject
             _vehicleMetaVm.StatusMessage = "No vehicle meta data";
         }
 
+        // Subscribe to property changes for dirty tracking
+        SubscribeDirtyTracking(vehicle.Handling);
+        SubscribeDirtyTracking(vehicle.CarVariation);
+        SubscribeDirtyTracking(vehicle.CarCols);
+        SubscribeDirtyTracking(vehicle.VehicleMeta);
+        SubscribeDirtyTracking(vehicle);
+
         // 3D Viewer - load from encrypted project files
         LoadModelForVehicle(vehicle);
 
@@ -290,6 +341,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void OnCreateProjectRequested(string folderPath)
     {
+        Log($"[CreateProject] Folder: {folderPath}");
         try
         {
             _currentProject = _projectService.CreateNew(folderPath);
@@ -305,6 +357,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void OnOpenProjectRequested(string folderPath)
     {
+        Log($"[OpenProject] Folder: {folderPath}");
         try
         {
             _currentProject = _projectService.Open(folderPath);
@@ -320,6 +373,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void OpenProjectInternal()
     {
+        Log($"[OpenInternal] Project: {_currentProject!.Name}, Resources: {_currentProject.Resources.Count}, Vehicles: {_currentProject.Resources.Sum(r => r.Vehicles.Count)}");
         IsProjectOpen = true;
         TitleSuffix = $" - {_currentProject!.Name}";
         _modelCache.Clear();
@@ -337,6 +391,9 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
+    private static System.Windows.Window? Owner
+        => System.Windows.Application.Current.MainWindow;
+
     [RelayCommand]
     private void NewProject()
     {
@@ -345,7 +402,7 @@ public partial class MainWindowViewModel : ObservableObject
             Description = "Select folder for new project",
             UseDescriptionForTitle = true,
         };
-        if (dialog.ShowDialog() == true)
+        if (dialog.ShowDialog(Owner) == true)
             OnCreateProjectRequested(dialog.SelectedPath);
     }
 
@@ -357,7 +414,7 @@ public partial class MainWindowViewModel : ObservableObject
             Description = "Open project folder",
             UseDescriptionForTitle = true,
         };
-        if (dialog.ShowDialog() == true)
+        if (dialog.ShowDialog(Owner) == true)
             OnOpenProjectRequested(dialog.SelectedPath);
     }
 
@@ -366,15 +423,28 @@ public partial class MainWindowViewModel : ObservableObject
     {
         if (_currentProject == null) return;
 
+        Log($"[Save] Saving project: {_currentProject.Name}, Path: {_currentProject.FolderPath}");
+        Log($"[Save] Resources: {_currentProject.Resources.Count}");
+        foreach (var res in _currentProject.Resources)
+        {
+            Log($"[Save]   Resource '{res.Name}': {res.Vehicles.Count} vehicle(s)");
+            foreach (var v in res.Vehicles)
+            {
+                Log($"[Save]     Vehicle '{v.Name}': YFT={v.YftRelativePath ?? "null"}, Handling={v.Handling?.HandlingName ?? "null"}, Meta={v.VehicleMeta?.GameName ?? "null"}, CarVar={v.CarVariation?.ModelName ?? "null"}, CarCols={(v.CarCols != null ? "yes" : "null")}");
+            }
+        }
+
         try
         {
             _projectService.Save(_currentProject);
             _currentProject.IsDirty = false;
             AutoSaveIndicator = $"Saved {DateTime.Now:HH:mm}";
+            Log("[Save] OK");
             StatusText = $"Project saved";
         }
         catch (Exception ex)
         {
+            Log($"[Save] ERROR: {ex.Message}");
             StatusText = $"Error saving: {ex.Message}";
         }
     }
@@ -389,7 +459,7 @@ public partial class MainWindowViewModel : ObservableObject
             Description = "Save project to folder",
             UseDescriptionForTitle = true,
         };
-        if (dialog.ShowDialog() != true) return;
+        if (dialog.ShowDialog(Owner) != true) return;
 
         try
         {
@@ -411,6 +481,7 @@ public partial class MainWindowViewModel : ObservableObject
         if (_currentProject != null && _currentProject.IsDirty)
             SaveProject();
 
+        UnsubscribeDirtyTracking();
         _currentProject = null;
         _autoSaveTimer.Stop();
         IsProjectOpen = false;
@@ -428,16 +499,74 @@ public partial class MainWindowViewModel : ObservableObject
     {
         if (_currentProject == null || !_currentProject.IsDirty) return;
 
+        Log("[AutoSave] Triggering auto-save...");
         try
         {
             _projectService.Save(_currentProject);
             _currentProject.IsDirty = false;
             AutoSaveIndicator = $"Auto-saved {DateTime.Now:HH:mm}";
+            Log("[AutoSave] OK");
         }
-        catch
+        catch (Exception ex)
         {
-            // Silent fail for auto-save
+            Log($"[AutoSave] ERROR: {ex.Message}");
         }
+    }
+
+    #endregion
+
+    #region Rename
+
+    [RelayCommand]
+    private void RenameSelected()
+    {
+        if (SelectedTreeNode is ResourceTreeNode or VehicleTreeNode)
+        {
+            SelectedTreeNode.IsEditing = true;
+        }
+    }
+
+    /// <summary>
+    /// Called from code-behind when the user commits the rename (Enter or LostFocus).
+    /// </summary>
+    public void CommitRename(TreeNodeViewModel node, string newName)
+    {
+        node.IsEditing = false;
+
+        var trimmed = newName.Trim();
+        if (string.IsNullOrEmpty(trimmed)) return;
+        if (trimmed == node.DisplayName) return;
+
+        switch (node)
+        {
+            case ResourceTreeNode rn:
+                rn.Resource.Name = trimmed;
+                rn.DisplayName = trimmed;
+                Log($"[Rename] Resource → '{trimmed}'");
+                break;
+            case VehicleTreeNode vn:
+                vn.Vehicle.Name = trimmed;
+                vn.DisplayName = trimmed;
+                Log($"[Rename] Vehicle → '{trimmed}'");
+                break;
+            default:
+                return;
+        }
+
+        if (_currentProject != null)
+        {
+            _currentProject.IsDirty = true;
+            SaveProject();
+        }
+        StatusText = $"Renamed to: {trimmed}";
+    }
+
+    /// <summary>
+    /// Called from code-behind when the user cancels the rename (Escape).
+    /// </summary>
+    public void CancelRename(TreeNodeViewModel node)
+    {
+        node.IsEditing = false;
     }
 
     #endregion
@@ -459,6 +588,7 @@ public partial class MainWindowViewModel : ObservableObject
         if (projectNode != null)
             SelectedTreeNode = projectNode.Children.LastOrDefault();
 
+        SaveProject(); // persist immediately
         StatusText = $"Added resource: {resource.Name}";
     }
 
@@ -500,6 +630,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         // Select the new vehicle
         SelectVehicleInTree(vehicle);
+        SaveProject(); // persist immediately
         StatusText = $"Added vehicle: {vehicle.Name}";
     }
 
@@ -528,15 +659,20 @@ public partial class MainWindowViewModel : ObservableObject
             Title = $"Import files for {vehicleNode.Vehicle.Name}",
             Multiselect = true
         };
-        if (dialog.ShowDialog() != true) return;
+        if (dialog.ShowDialog(Owner) != true) return;
 
         try
         {
-            _projectService.ImportVehicleFiles(_currentProject, vehicleNode.Vehicle, dialog.FileNames);
+            var vehicle = vehicleNode.Vehicle;
+            Log($"[ImportFiles] Vehicle: {vehicle.Name}, Files: {string.Join(", ", dialog.FileNames.Select(Path.GetFileName))}");
+            _projectService.ImportVehicleFiles(_currentProject, vehicle, dialog.FileNames);
+            Log($"[ImportFiles] After import: YFT={vehicle.YftRelativePath ?? "null"}, YTD={vehicle.YtdRelativePath ?? "null"}, YFT_HI={vehicle.YftHiRelativePath ?? "null"}");
             _currentProject.IsDirty = true;
             RebuildTree();
-            LoadVehicleIntoEditors(vehicleNode.Vehicle);
-            StatusText = $"Imported {dialog.FileNames.Length} file(s) for {vehicleNode.Vehicle.Name}";
+            SelectVehicleInTree(vehicle);
+            LoadVehicleIntoEditors(vehicle);
+            SaveProject(); // persist immediately
+            StatusText = $"Imported {dialog.FileNames.Length} file(s) for {vehicle.Name}";
         }
         catch (Exception ex)
         {
@@ -565,7 +701,7 @@ public partial class MainWindowViewModel : ObservableObject
             Description = "Select vehicle folder to import",
             UseDescriptionForTitle = true,
         };
-        if (dialog.ShowDialog() != true) return;
+        if (dialog.ShowDialog(Owner) != true) return;
 
         try
         {
@@ -580,6 +716,7 @@ public partial class MainWindowViewModel : ObservableObject
             _projectService.ImportVehicleFolder(_currentProject, resource, dialog.SelectedPath, progress);
             _currentProject.IsDirty = true;
             RebuildTree();
+            SaveProject(); // persist immediately
             StatusText = $"Imported vehicle(s) from: {Path.GetFileName(dialog.SelectedPath)}";
         }
         catch (Exception ex)
@@ -595,7 +732,27 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void ImportMetaFile()
     {
-        if (_currentProject == null || SelectedTreeNode is not VehicleTreeNode vehicleNode) return;
+        if (_currentProject == null) return;
+
+        // Determine target: single vehicle or all vehicles in a resource
+        Vehicle? singleVehicle = null;
+        Resource? targetResource = null;
+
+        switch (SelectedTreeNode)
+        {
+            case VehicleTreeNode vn:
+                singleVehicle = vn.Vehicle;
+                targetResource = FindResourceForVehicle(vn.Vehicle);
+                break;
+            case ResourceTreeNode rn:
+                targetResource = rn.Resource;
+                break;
+            default:
+                StatusText = "Select a vehicle or resource first.";
+                return;
+        }
+
+        if (targetResource == null) return;
 
         var dialog = new OpenFileDialog
         {
@@ -603,33 +760,120 @@ public partial class MainWindowViewModel : ObservableObject
             Title = "Import meta file",
             Multiselect = true
         };
-        if (dialog.ShowDialog() != true) return;
+        if (dialog.ShowDialog(Owner) != true) return;
 
-        var vehicle = vehicleNode.Vehicle;
+        var allVehicles = targetResource.Vehicles;
+        int applied = 0;
+
         foreach (var file in dialog.FileNames)
         {
             var fileName = Path.GetFileName(file).ToLowerInvariant();
+            Log($"[ImportMeta] Processing: {fileName}");
+
             try
             {
                 if (fileName.Contains("handling"))
-                    vehicle.Handling = _metaXmlService.LoadHandling(file);
+                    applied += ImportMultiMeta(file, allVehicles, singleVehicle,
+                        f => _metaXmlService.LoadAllHandlings(f),
+                        (v, d) => v.Handling = d, "Handling");
                 else if (fileName.Contains("vehicles"))
-                    vehicle.VehicleMeta = _metaXmlService.LoadVehicleMeta(file);
+                    applied += ImportMultiMeta(file, allVehicles, singleVehicle,
+                        f => _metaXmlService.LoadAllVehicleMetas(f),
+                        (v, d) => v.VehicleMeta = d, "VehicleMeta");
                 else if (fileName.Contains("carvariations"))
-                    vehicle.CarVariation = _metaXmlService.LoadCarVariations(file);
+                    applied += ImportMultiMeta(file, allVehicles, singleVehicle,
+                        f => _metaXmlService.LoadAllCarVariations(f),
+                        (v, d) => v.CarVariation = d, "CarVariation");
                 else if (fileName.Contains("carcols"))
-                    vehicle.CarCols = _metaXmlService.LoadCarCols(file);
+                {
+                    // CarCols has no multi-vehicle LoadAll — use single import
+                    var data = _metaXmlService.LoadCarCols(file);
+                    if (singleVehicle != null)
+                    {
+                        singleVehicle.CarCols = data;
+                        Log($"  [CarCols] Assigned to {singleVehicle.Name}");
+                        applied++;
+                    }
+                    else if (allVehicles.Count > 0)
+                    {
+                        allVehicles[0].CarCols = data;
+                        Log($"  [CarCols] Assigned to first vehicle: {allVehicles[0].Name}");
+                        applied++;
+                    }
+                }
+                else
+                {
+                    Log($"  [Skip] Unknown meta type: {fileName}");
+                }
             }
             catch (Exception ex)
             {
+                Log($"  [ERROR] {fileName}: {ex.Message}");
                 StatusText = $"Error importing {fileName}: {ex.Message}";
                 return;
             }
         }
 
         _currentProject.IsDirty = true;
-        LoadVehicleIntoEditors(vehicle);
-        StatusText = $"Imported {dialog.FileNames.Length} meta file(s) for {vehicle.Name}";
+        if (singleVehicle != null)
+            LoadVehicleIntoEditors(singleVehicle);
+        SaveProject();
+        StatusText = $"Imported {applied} assignment(s) from {dialog.FileNames.Length} file(s)";
+    }
+
+    /// <summary>
+    /// Import a multi-vehicle meta file. Uses AutoMatch to assign entries to vehicles.
+    /// When only 1 entry exists and a single vehicle is selected, assigns directly.
+    /// When multiple entries exist, always auto-matches across ALL vehicles in the resource.
+    /// </summary>
+    private int ImportMultiMeta<T>(
+        string filePath,
+        IList<Vehicle> allVehicles,
+        Vehicle? singleVehicle,
+        Func<string, Dictionary<string, T>> loadAll,
+        Action<Vehicle, T> assign,
+        string metaType)
+    {
+        var parsed = loadAll(filePath);
+        Log($"  [{metaType}] Found {parsed.Count} entry/entries: {string.Join(", ", parsed.Keys)}");
+
+        if (parsed.Count == 0) return 0;
+
+        // Only 1 entry + single vehicle selected → assign directly (no ambiguity)
+        if (parsed.Count == 1 && singleVehicle != null)
+        {
+            var entry = parsed.First();
+            assign(singleVehicle, entry.Value);
+            Log($"  [{metaType}] Single entry '{entry.Key}' → assigned to {singleVehicle.Name}");
+            return 1;
+        }
+
+        // Multiple entries → always auto-match across ALL vehicles in the resource
+        var matches = _matchService.AutoMatch(parsed, allVehicles);
+        int count = 0;
+
+        foreach (var match in matches)
+        {
+            if (match.MatchedVehicle != null)
+            {
+                assign(match.MatchedVehicle, match.Data);
+                Log($"  [{metaType}] Matched '{match.ParsedName}' → {match.MatchedVehicle.Name} (confidence: {match.Confidence})");
+                count++;
+            }
+            else
+            {
+                Log($"  [{metaType}] No match for '{match.ParsedName}' — skipped");
+            }
+        }
+
+        if (count == 0)
+        {
+            Log($"  [{metaType}] WARNING: No matches found! Vehicle names: {string.Join(", ", allVehicles.Select(v => v.Name))}");
+            Log($"  [{metaType}] Meta entry names: {string.Join(", ", parsed.Keys)}");
+            Log($"  [{metaType}] Rename your vehicles to match the meta entry names (e.g., police1, police2, ambulance)");
+        }
+
+        return count;
     }
 
     [RelayCommand]
@@ -643,7 +887,7 @@ public partial class MainWindowViewModel : ObservableObject
             FileName = $"{metaType}.meta",
             Title = $"Export {metaType}.meta"
         };
-        if (dialog.ShowDialog() != true) return;
+        if (dialog.ShowDialog(Owner) != true) return;
 
         try
         {
@@ -695,7 +939,7 @@ public partial class MainWindowViewModel : ObservableObject
             FileName = $"{_currentProject.Name}.zip",
             Title = "Export project as ZIP"
         };
-        if (dialog.ShowDialog() != true) return;
+        if (dialog.ShowDialog(Owner) != true) return;
 
         // TODO: Show PasswordDialog to get password
         var password = "temp_password";
@@ -731,14 +975,14 @@ public partial class MainWindowViewModel : ObservableObject
             Filter = "ZIP Archive|*.zip",
             Title = "Import project from ZIP"
         };
-        if (openDialog.ShowDialog() != true) return;
+        if (openDialog.ShowDialog(Owner) != true) return;
 
         var folderDialog = new Ookii.Dialogs.Wpf.VistaFolderBrowserDialog
         {
             Description = "Select target folder for imported project",
             UseDescriptionForTitle = true,
         };
-        if (folderDialog.ShowDialog() != true) return;
+        if (folderDialog.ShowDialog(Owner) != true) return;
 
         // TODO: Show PasswordDialog to get password
         var password = "temp_password";
@@ -776,22 +1020,30 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void RebuildTree()
     {
-        TreeNodes.Clear();
-        if (_currentProject == null) return;
-
-        var projectNode = new ProjectTreeNode(_currentProject);
-
-        foreach (var resource in _currentProject.Resources)
+        _isRebuildingTree = true;
+        try
         {
-            var resourceNode = new ResourceTreeNode(resource);
-            foreach (var vehicle in resource.Vehicles)
-            {
-                resourceNode.Children.Add(new VehicleTreeNode(vehicle, _currentProject.FolderPath));
-            }
-            projectNode.Children.Add(resourceNode);
-        }
+            TreeNodes.Clear();
+            if (_currentProject == null) return;
 
-        TreeNodes.Add(projectNode);
+            var projectNode = new ProjectTreeNode(_currentProject);
+
+            foreach (var resource in _currentProject.Resources)
+            {
+                var resourceNode = new ResourceTreeNode(resource);
+                foreach (var vehicle in resource.Vehicles)
+                {
+                    resourceNode.Children.Add(new VehicleTreeNode(vehicle, _currentProject.FolderPath));
+                }
+                projectNode.Children.Add(resourceNode);
+            }
+
+            TreeNodes.Add(projectNode);
+        }
+        finally
+        {
+            _isRebuildingTree = false;
+        }
     }
 
     private Resource? FindResourceForVehicle(Vehicle vehicle)

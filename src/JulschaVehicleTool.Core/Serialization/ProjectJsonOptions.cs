@@ -20,6 +20,10 @@ public static class ProjectJsonOptions
             WriteIndented = true,
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            // Required: ObservableCollection properties with { get; } = new()
+            // need Populate mode — deserializer adds items to the existing
+            // collection instead of replacing it (which fails for get-only props).
+            PreferredObjectCreationHandling = JsonObjectCreationHandling.Populate,
         };
 
         options.Converters.Add(new Vector3JsonConverter());

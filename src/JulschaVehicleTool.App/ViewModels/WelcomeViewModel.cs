@@ -51,7 +51,8 @@ public partial class WelcomeViewModel : ObservableObject
             UseDescriptionForTitle = true,
         };
 
-        if (dialog.ShowDialog() == true)
+        var owner = System.Windows.Application.Current.MainWindow;
+        if (dialog.ShowDialog(owner) == true)
             CreateProjectRequested?.Invoke(dialog.SelectedPath);
     }
 
@@ -64,7 +65,8 @@ public partial class WelcomeViewModel : ObservableObject
             UseDescriptionForTitle = true,
         };
 
-        if (dialog.ShowDialog() == true)
+        var owner = System.Windows.Application.Current.MainWindow;
+        if (dialog.ShowDialog(owner) == true)
             OpenProjectRequested?.Invoke(dialog.SelectedPath);
     }
 

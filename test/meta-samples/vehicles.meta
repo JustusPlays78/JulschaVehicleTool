@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CVehicleModelInfo__InitDataList>
+  <InitDatas>
+    <Item>
+      <modelName>police1</modelName>
+      <txdName>police1</txdName>
+      <handlingId>police1</handlingId>
+      <gameName>police1</gameName>
+      <vehicleMakeName>VAPID</vehicleMakeName>
+      <type>VEHICLE_TYPE_CAR</type>
+      <plateType>VPT_FRONT_AND_BACK_PLATES</plateType>
+      <dashboardType>VDT_CHARGER</dashboardType>
+      <vehicleClass>VC_EMERGENCY</vehicleClass>
+      <wheelType>VWT_SPORT</wheelType>
+      <layout>LAYOUT_STD_HIGHEND</layout>
+      <flags>FLAG_IS_ELECTRIC FLAG_NO_WHEEL_BURST</flags>
+      <strFlags>0</strFlags>
+      <audioNameHash>police_charger_hash</audioNameHash>
+      <swankness>SWANKNESS_1</swankness>
+      <maxPassengers value="3" />
+      <mass value="2100.000000" />
+      <percentSubmerged value="85.000000" />
+      <prevehicleConvRoofDismount value="0.000000" />
+      <searchLight value="1.000000" />
+      <diffuseColor value="0" />
+      <rewards>YOURREWARD</rewards>
+      <cinematicPartCamera />
+    </Item>
+    <Item>
+      <modelName>police2</modelName>
+      <txdName>police2</txdName>
+      <handlingId>police2</handlingId>
+      <gameName>police2</gameName>
+      <vehicleMakeName>BRAVADO</vehicleMakeName>
+      <type>VEHICLE_TYPE_CAR</type>
+      <plateType>VPT_FRONT_AND_BACK_PLATES</plateType>
+      <dashboardType>VDT_CHARGER</dashboardType>
+      <vehicleClass>VC_EMERGENCY</vehicleClass>
+      <wheelType>VWT_SPORT</wheelType>
+      <layout>LAYOUT_STD_HIGHEND</layout>
+      <flags>0</flags>
+      <strFlags>0</strFlags>
+      <audioNameHash>police_buffalo_hash</audioNameHash>
+      <swankness>SWANKNESS_1</swankness>
+      <maxPassengers value="3" />
+      <mass value="2300.000000" />
+      <percentSubmerged value="85.000000" />
+      <prevehicleConvRoofDismount value="0.000000" />
+      <searchLight value="0.000000" />
+      <diffuseColor value="0" />
+      <rewards>YOURREWARD</rewards>
+      <cinematicPartCamera />
+    </Item>
+    <Item>
+      <modelName>ambulance</modelName>
+      <txdName>ambulance</txdName>
+      <handlingId>ambulance</handlingId>
+      <gameName>ambulance</gameName>
+      <vehicleMakeName>BRUTE</vehicleMakeName>
+      <type>VEHICLE_TYPE_CAR</type>
+      <plateType>VPT_BACK_PLATES</plateType>
+      <dashboardType>VDT_VAN</dashboardType>
+      <vehicleClass>VC_EMERGENCY</vehicleClass>
+      <wheelType>VWT_MUSCLE</wheelType>
+      <layout>LAYOUT_STD_VAN</layout>
+      <flags>FLAG_IS_VAN</flags>
+      <strFlags>0</strFlags>
+      <audioNameHash>ambulance_hash</audioNameHash>
+      <swankness>SWANKNESS_1</swankness>
+      <maxPassengers value="3" />
+      <mass value="3800.000000" />
+      <percentSubmerged value="85.000000" />
+      <prevehicleConvRoofDismount value="0.000000" />
+      <searchLight value="0.000000" />
+      <diffuseColor value="0" />
+      <rewards>YOURREWARD</rewards>
+      <cinematicPartCamera />
+    </Item>
+  </InitDatas>
+</CVehicleModelInfo__InitDataList>

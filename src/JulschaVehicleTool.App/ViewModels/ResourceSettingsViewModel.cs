@@ -62,7 +62,8 @@ public partial class ResourceSettingsViewModel : ObservableObject
             UseDescriptionForTitle = true,
         };
 
-        if (dialog.ShowDialog() == true)
+        var owner = System.Windows.Application.Current.MainWindow;
+        if (dialog.ShowDialog(owner) == true)
             OutputPath = dialog.SelectedPath;
     }
 

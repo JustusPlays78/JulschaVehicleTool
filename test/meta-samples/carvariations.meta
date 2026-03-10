@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CVehicleModelInfoVariation>
+  <variationData>
+    <Item>
+      <modelName>police1</modelName>
+      <colors>
+        <Item>
+          <indices>0 0 0 0 156 156</indices>
+          <liveries>
+            <Item value="true" />
+            <Item value="true" />
+            <Item value="false" />
+          </liveries>
+        </Item>
+        <Item>
+          <indices>1 1 0 0 156 156</indices>
+          <liveries>
+            <Item value="true" />
+            <Item value="false" />
+          </liveries>
+        </Item>
+      </colors>
+      <kits>
+        <Item>0_default_modkit</Item>
+      </kits>
+      <plateProbabilities>
+        <Probabilities>
+          <Item>
+            <Name>plateholder1</Name>
+            <Value value="100" />
+          </Item>
+        </Probabilities>
+      </plateProbabilities>
+      <lightSettings value="1" />
+      <sirenSettings value="1" />
+    </Item>
+    <Item>
+      <modelName>police2</modelName>
+      <colors>
+        <Item>
+          <indices>0 0 0 0 156 156</indices>
+          <liveries>
+            <Item value="true" />
+            <Item value="true" />
+          </liveries>
+        </Item>
+      </colors>
+      <kits>
+        <Item>1_default_modkit</Item>
+      </kits>
+      <plateProbabilities>
+        <Probabilities>
+          <Item>
+            <Name>plateholder1</Name>
+            <Value value="80" />
+          </Item>
+          <Item>
+            <Name>plateholder2</Name>
+            <Value value="20" />
+          </Item>
+        </Probabilities>
+      </plateProbabilities>
+      <lightSettings value="2" />
+      <sirenSettings value="2" />
+    </Item>
+    <Item>
+      <modelName>ambulance</modelName>
+      <colors>
+        <Item>
+          <indices>111 111 0 0 0 0</indices>
+          <liveries>
+            <Item value="true" />
+          </liveries>
+        </Item>
+      </colors>
+      <kits>
+        <Item>2_default_modkit</Item>
+      </kits>
+      <plateProbabilities>
+        <Probabilities>
+          <Item>
+            <Name>plateholder1</Name>
+            <Value value="100" />
+          </Item>
+        </Probabilities>
+      </plateProbabilities>
+      <lightSettings value="3" />
+      <sirenSettings value="3" />
+    </Item>
+  </variationData>
+</CVehicleModelInfoVariation>

@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:JulschaVehicleTool.App.ViewModels"
         xmlns:views="clr-namespace:JulschaVehicleTool.App.Views"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         Title="{Binding TitleSuffix, StringFormat='Julscha Vehicle Tool{0}'}"
         Width="1280" Height="800"
         MinWidth="900" MinHeight="600"
@@ -32,9 +33,6 @@
         <DataTemplate DataType="{x:Type vm:ResourceSettingsViewModel}">
             <views:ResourceSettingsView />
         </DataTemplate>
-
-        <BooleanToVisibilityConverter x:Key="BoolToVis" />
-        <vm:InvertBoolConverter x:Key="InvertBoolConverter" />
     </Window.Resources>
 
     <Window.InputBindings>
@@ -43,6 +41,7 @@
         <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveProjectCommand}" />
         <KeyBinding Gesture="Ctrl+Shift+S" Command="{Binding SaveProjectAsCommand}" />
         <KeyBinding Key="Delete" Command="{Binding RemoveVehicleCommand}" />
+        <KeyBinding Key="F2" Command="{Binding RenameSelectedCommand}" />
     </Window.InputBindings>
 
     <Grid>
@@ -52,177 +51,276 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Menu Bar -->
-        <Border Grid.Row="0" Background="{DynamicResource SurfaceVariantBrush}" Padding="0">
-            <DockPanel>
-                <Menu DockPanel.Dock="Left" Background="Transparent" Foreground="{DynamicResource OnSurfaceBrush}">
-                    <MenuItem Header="_File">
-                        <MenuItem Header="_New Project" Command="{Binding NewProjectCommand}" InputGestureText="Ctrl+N" />
-                        <MenuItem Header="_Open Project" Command="{Binding OpenProjectCommand}" InputGestureText="Ctrl+O" />
-                        <MenuItem Header="_Save Project" Command="{Binding SaveProjectCommand}" InputGestureText="Ctrl+S" />
-                        <MenuItem Header="Save Project _As..." Command="{Binding SaveProjectAsCommand}" InputGestureText="Ctrl+Shift+S" />
-                        <Separator />
-                        <MenuItem Header="Close _Project" Command="{Binding CloseProjectCommand}" />
-                        <Separator />
-                        <MenuItem Header="Export Project _ZIP..." Command="{Binding ExportProjectZipCommand}" />
-                        <MenuItem Header="_Import Project ZIP..." Command="{Binding ImportProjectZipCommand}" />
-                        <Separator />
-                        <MenuItem Header="E_xit" Click="OnExitClick" InputGestureText="Alt+F4" />
+        <!-- ═══════════ Menu Bar ═══════════ -->
+        <Border Grid.Row="0" Background="{DynamicResource SurfaceVariantBrush}"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+            <Menu Background="Transparent"
+                  Foreground="{DynamicResource OnSurfaceBrush}"
+                  FontSize="13" Padding="4,2">
+                <MenuItem Header="_File">
+                    <MenuItem Header="_New Project" Command="{Binding NewProjectCommand}" InputGestureText="Ctrl+N">
+                        <MenuItem.Icon>
+                            <materialDesign:PackIcon Kind="FolderPlus" Width="16" Height="16" />
+                        </MenuItem.Icon>
                     </MenuItem>
-                    <MenuItem Header="_Edit">
-                        <MenuItem Header="Add _Resource" Command="{Binding AddResourceCommand}" />
-                        <MenuItem Header="Add _Vehicle" Command="{Binding AddVehicleCommand}" />
-                        <Separator />
-                        <MenuItem Header="Import Vehicle _Files..." Command="{Binding ImportVehicleFilesCommand}" />
-                        <MenuItem Header="Import Vehicle F_older..." Command="{Binding ImportVehicleFolderCommand}" />
-                        <MenuItem Header="Import _Meta File..." Command="{Binding ImportMetaFileCommand}" />
+                    <MenuItem Header="_Open Project" Command="{Binding OpenProjectCommand}" InputGestureText="Ctrl+O">
+                        <MenuItem.Icon>
+                            <materialDesign:PackIcon Kind="FolderOpen" Width="16" Height="16" />
+                        </MenuItem.Icon>
                     </MenuItem>
-                    <MenuItem Header="_Presets">
-                        <MenuItem Header="Sports Car" Command="{Binding ApplyHandlingPresetCommand}" CommandParameter="Sports Car" />
-                        <MenuItem Header="Muscle Car" Command="{Binding ApplyHandlingPresetCommand}" CommandParameter="Muscle Car" />
-                        <MenuItem Header="SUV / Truck" Command="{Binding ApplyHandlingPresetCommand}" CommandParameter="SUV / Truck" />
-                        <MenuItem Header="Motorcycle" Command="{Binding ApplyHandlingPresetCommand}" CommandParameter="Motorcycle" />
-                        <MenuItem Header="Boat" Command="{Binding ApplyHandlingPresetCommand}" CommandParameter="Boat" />
-                        <MenuItem Header="Helicopter" Command="{Binding ApplyHandlingPresetCommand}" CommandParameter="Helicopter" />
+                    <MenuItem Header="_Save Project" Command="{Binding SaveProjectCommand}" InputGestureText="Ctrl+S">
+                        <MenuItem.Icon>
+                            <materialDesign:PackIcon Kind="ContentSave" Width="16" Height="16" />
+                        </MenuItem.Icon>
                     </MenuItem>
-                    <MenuItem Header="_Help">
-                        <MenuItem Header="_About" Click="OnAboutClick" />
+                    <MenuItem Header="Save Project _As..." Command="{Binding SaveProjectAsCommand}" InputGestureText="Ctrl+Shift+S" />
+                    <Separator />
+                    <MenuItem Header="Close _Project" Command="{Binding CloseProjectCommand}" />
+                    <Separator />
+                    <MenuItem Header="Export Project _ZIP..." Command="{Binding ExportProjectZipCommand}">
+                        <MenuItem.Icon>
+                            <materialDesign:PackIcon Kind="FolderZip" Width="16" Height="16" />
+                        </MenuItem.Icon>
                     </MenuItem>
-                </Menu>
-                <TextBlock Text="{Binding TitleSuffix, StringFormat='Julscha Vehicle Tool{0}'}"
-                           VerticalAlignment="Center"
-                           HorizontalAlignment="Center"
-                           FontSize="13" FontWeight="SemiBold"
-                           Foreground="{DynamicResource OnSurfaceBrush}" />
-            </DockPanel>
+                    <MenuItem Header="_Import Project ZIP..." Command="{Binding ImportProjectZipCommand}" />
+                    <Separator />
+                    <MenuItem Header="E_xit" Click="OnExitClick" InputGestureText="Alt+F4" />
+                </MenuItem>
+                <MenuItem Header="_Edit">
+                    <MenuItem Header="Add _Resource" Command="{Binding AddResourceCommand}">
+                        <MenuItem.Icon>
+                            <materialDesign:PackIcon Kind="PackageVariantPlus" Width="16" Height="16" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="Add _Vehicle" Command="{Binding AddVehicleCommand}">
+                        <MenuItem.Icon>
+                            <materialDesign:PackIcon Kind="CarHatchback" Width="16" Height="16" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator />
+                    <MenuItem Header="Import Vehicle _Files..." Command="{Binding ImportVehicleFilesCommand}" />
+                    <MenuItem Header="Import Vehicle F_older..." Command="{Binding ImportVehicleFolderCommand}" />
+                    <MenuItem Header="Import _Meta File..." Command="{Binding ImportMetaFileCommand}" />
+                </MenuItem>
+                <MenuItem Header="_Presets">
+                    <MenuItem Header="Sports Car" Command="{Binding ApplyHandlingPresetCommand}" CommandParameter="Sports Car" />
+                    <MenuItem Header="Muscle Car" Command="{Binding ApplyHandlingPresetCommand}" CommandParameter="Muscle Car" />
+                    <MenuItem Header="SUV / Truck" Command="{Binding ApplyHandlingPresetCommand}" CommandParameter="SUV / Truck" />
+                    <MenuItem Header="Motorcycle" Command="{Binding ApplyHandlingPresetCommand}" CommandParameter="Motorcycle" />
+                    <MenuItem Header="Boat" Command="{Binding ApplyHandlingPresetCommand}" CommandParameter="Boat" />
+                    <MenuItem Header="Helicopter" Command="{Binding ApplyHandlingPresetCommand}" CommandParameter="Helicopter" />
+                </MenuItem>
+                <MenuItem Header="_Help">
+                    <MenuItem Header="_About" Click="OnAboutClick">
+                        <MenuItem.Icon>
+                            <materialDesign:PackIcon Kind="InformationCircle" Width="16" Height="16" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                </MenuItem>
+            </Menu>
         </Border>
 
-        <!-- Main Content Area -->
+        <!-- ═══════════ Main Content ═══════════ -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="220" MinWidth="160" MaxWidth="400" />
+                <ColumnDefinition Width="240" MinWidth="180" MaxWidth="400" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <!-- Sidebar: TreeView + Controls -->
-            <Grid Grid.Column="0" Background="{DynamicResource SurfaceVariantBrush}"
-                  Visibility="{Binding IsProjectOpen, Converter={StaticResource BoolToVis}}">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
+            <!-- ─── Sidebar ─── -->
+            <Border Grid.Column="0"
+                    Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="0,0,1,0"
+                    Visibility="{Binding IsProjectOpen, Converter={StaticResource BoolToVis}}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
-                <!-- TreeView Header -->
-                <DockPanel Grid.Row="0" Margin="12,10,12,6">
-                    <TextBlock Text="PROJECT"
-                               FontSize="11" FontWeight="Bold"
-                               Foreground="{DynamicResource OnSurfaceVariantBrush}"
-                               VerticalAlignment="Center" />
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <Button Content="+" ToolTip="Add Resource"
-                                Command="{Binding AddResourceCommand}"
-                                Width="24" Height="24" Padding="0"
-                                Background="Transparent" BorderThickness="0"
-                                Foreground="{DynamicResource SecondaryBrush}"
-                                FontSize="16" FontWeight="Bold" Cursor="Hand" />
+                    <!-- Sidebar Header -->
+                    <DockPanel Grid.Row="0" Margin="12,10,8,6">
+                        <TextBlock Text="PROJECT"
+                                   FontSize="11" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource OnSurfaceVariantBrush}"
+                                   VerticalAlignment="Center" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button ToolTip="Add Resource"
+                                    Command="{Binding AddResourceCommand}"
+                                    Style="{StaticResource IconButtonStyle}">
+                                <materialDesign:PackIcon Kind="PackageVariantPlus" Width="16" Height="16" />
+                            </Button>
+                            <Button ToolTip="Add Vehicle"
+                                    Command="{Binding AddVehicleCommand}"
+                                    Style="{StaticResource IconButtonStyle}">
+                                <materialDesign:PackIcon Kind="CarHatchback" Width="16" Height="16" />
+                            </Button>
+                        </StackPanel>
+                    </DockPanel>
+
+                    <!-- TreeView -->
+                    <TreeView Grid.Row="1"
+                              ItemsSource="{Binding TreeNodes}"
+                              Background="Transparent"
+                              BorderThickness="0"
+                              Padding="4,0"
+                              ItemContainerStyle="{StaticResource TreeViewItemStyle}"
+                              SelectedItemChanged="OnTreeViewSelectedItemChanged">
+                        <TreeView.Resources>
+                            <!-- Project Node -->
+                            <HierarchicalDataTemplate DataType="{x:Type vm:ProjectTreeNode}"
+                                                      ItemsSource="{Binding Children}">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="FolderCog" Width="16" Height="16"
+                                                             Foreground="{DynamicResource AccentBrush}"
+                                                             VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <TextBlock Text="{Binding DisplayName}"
+                                               FontSize="13" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource OnSurfaceBrush}"
+                                               VerticalAlignment="Center" />
+                                </StackPanel>
+                            </HierarchicalDataTemplate>
+
+                            <!-- Resource Node -->
+                            <HierarchicalDataTemplate DataType="{x:Type vm:ResourceTreeNode}"
+                                                      ItemsSource="{Binding Children}">
+                                <StackPanel Orientation="Horizontal">
+                                    <StackPanel.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="Rename" InputGestureText="F2"
+                                                      Command="{Binding DataContext.RenameSelectedCommand, Source={x:Reference MainGrid}}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="RenameBox" Width="16" Height="16" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <Separator />
+                                            <MenuItem Header="Add Vehicle"
+                                                      Command="{Binding DataContext.AddVehicleCommand, Source={x:Reference MainGrid}}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="CarHatchback" Width="16" Height="16" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <MenuItem Header="Import Vehicle Folder..."
+                                                      Command="{Binding DataContext.ImportVehicleFolderCommand, Source={x:Reference MainGrid}}" />
+                                            <MenuItem Header="Import Meta File..."
+                                                      Command="{Binding DataContext.ImportMetaFileCommand, Source={x:Reference MainGrid}}" />
+                                            <Separator />
+                                            <MenuItem Header="Delete Resource"
+                                                      Command="{Binding DataContext.RemoveResourceCommand, Source={x:Reference MainGrid}}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="DeleteForever" Width="16" Height="16" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                        </ContextMenu>
+                                    </StackPanel.ContextMenu>
+                                    <materialDesign:PackIcon Kind="PackageVariant" Width="15" Height="15"
+                                                             Foreground="{DynamicResource SecondaryBrush}"
+                                                             VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <TextBlock Text="{Binding DisplayName}"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource OnSurfaceBrush}"
+                                               VerticalAlignment="Center"
+                                               Visibility="{Binding IsEditing, Converter={StaticResource InvertBoolToVisConverter}}" />
+                                    <TextBox Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}"
+                                             FontSize="12"
+                                             MinWidth="80"
+                                             Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}"
+                                             Tag="RenameBox"
+                                             Loaded="OnRenameBoxLoaded"
+                                             LostFocus="OnRenameBoxLostFocus"
+                                             KeyDown="OnRenameBoxKeyDown" />
+                                </StackPanel>
+                                <HierarchicalDataTemplate.ItemContainerStyle>
+                                    <Style TargetType="TreeViewItem" BasedOn="{StaticResource TreeViewItemStyle}">
+                                        <Setter Property="ContextMenu">
+                                            <Setter.Value>
+                                                <ContextMenu>
+                                                    <MenuItem Header="Rename" InputGestureText="F2"
+                                                              Command="{Binding DataContext.RenameSelectedCommand, Source={x:Reference MainGrid}}">
+                                                        <MenuItem.Icon>
+                                                            <materialDesign:PackIcon Kind="RenameBox" Width="16" Height="16" />
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
+                                                    <Separator />
+                                                    <MenuItem Header="Import Vehicle Files..."
+                                                              Command="{Binding DataContext.ImportVehicleFilesCommand, Source={x:Reference MainGrid}}" />
+                                                    <MenuItem Header="Import Meta File..."
+                                                              Command="{Binding DataContext.ImportMetaFileCommand, Source={x:Reference MainGrid}}" />
+                                                    <Separator />
+                                                    <MenuItem Header="Delete Vehicle"
+                                                              Command="{Binding DataContext.RemoveVehicleCommand, Source={x:Reference MainGrid}}">
+                                                        <MenuItem.Icon>
+                                                            <materialDesign:PackIcon Kind="DeleteForever" Width="16" Height="16" />
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
+                                                    <Separator />
+                                                    <MenuItem Header="Export handling.meta"
+                                                              Command="{Binding DataContext.ExportSingleMetaCommand, Source={x:Reference MainGrid}}"
+                                                              CommandParameter="handling" />
+                                                    <MenuItem Header="Export vehicles.meta"
+                                                              Command="{Binding DataContext.ExportSingleMetaCommand, Source={x:Reference MainGrid}}"
+                                                              CommandParameter="vehicles" />
+                                                    <MenuItem Header="Export carvariations.meta"
+                                                              Command="{Binding DataContext.ExportSingleMetaCommand, Source={x:Reference MainGrid}}"
+                                                              CommandParameter="carvariations" />
+                                                    <MenuItem Header="Export carcols.meta"
+                                                              Command="{Binding DataContext.ExportSingleMetaCommand, Source={x:Reference MainGrid}}"
+                                                              CommandParameter="carcols" />
+                                                </ContextMenu>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </HierarchicalDataTemplate.ItemContainerStyle>
+                            </HierarchicalDataTemplate>
+
+                            <!-- Vehicle Node -->
+                            <DataTemplate DataType="{x:Type vm:VehicleTreeNode}">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="AlertCircleOutline" Width="14" Height="14"
+                                                             Foreground="{DynamicResource WarningBrush}"
+                                                             VerticalAlignment="Center" Margin="0,0,4,0"
+                                                             Visibility="{Binding HasWarning, Converter={StaticResource BoolToVis}}" />
+                                    <materialDesign:PackIcon Kind="CarSide" Width="14" Height="14"
+                                                             Foreground="{DynamicResource OnSurfaceVariantBrush}"
+                                                             VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <TextBlock Text="{Binding DisplayName}"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource OnSurfaceBrush}"
+                                               VerticalAlignment="Center"
+                                               Visibility="{Binding IsEditing, Converter={StaticResource InvertBoolToVisConverter}}" />
+                                    <TextBox Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}"
+                                             FontSize="12"
+                                             MinWidth="80"
+                                             Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}"
+                                             Tag="RenameBox"
+                                             Loaded="OnRenameBoxLoaded"
+                                             LostFocus="OnRenameBoxLostFocus"
+                                             KeyDown="OnRenameBoxKeyDown" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </TreeView.Resources>
+                    </TreeView>
+
+                    <!-- Sidebar Footer -->
+                    <StackPanel Grid.Row="2" Margin="8,4,8,8">
+                        <Button Content="Import Files..."
+                                Command="{Binding ImportVehicleFilesCommand}"
+                                Style="{StaticResource SidebarButtonStyle}"
+                                HorizontalAlignment="Stretch" />
                     </StackPanel>
-                </DockPanel>
-
-                <!-- TreeView -->
-                <TreeView Grid.Row="1"
-                          ItemsSource="{Binding TreeNodes}"
-                          Background="Transparent"
-                          BorderThickness="0"
-                          Padding="4,0"
-                          ItemContainerStyle="{StaticResource TreeViewItemStyle}"
-                          SelectedItemChanged="OnTreeViewSelectedItemChanged">
-                    <TreeView.Resources>
-                        <!-- Project Node -->
-                        <HierarchicalDataTemplate DataType="{x:Type vm:ProjectTreeNode}"
-                                                  ItemsSource="{Binding Children}">
-                            <TextBlock Text="{Binding DisplayName}"
-                                       FontSize="13" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource OnSurfaceBrush}" />
-                        </HierarchicalDataTemplate>
-
-                        <!-- Resource Node -->
-                        <HierarchicalDataTemplate DataType="{x:Type vm:ResourceTreeNode}"
-                                                  ItemsSource="{Binding Children}">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#x1F4E6; " FontSize="12" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding DisplayName}"
-                                           FontSize="12"
-                                           Foreground="{DynamicResource OnSurfaceBrush}" />
-                            </StackPanel>
-                            <HierarchicalDataTemplate.ItemContainerStyle>
-                                <Style TargetType="TreeViewItem" BasedOn="{StaticResource TreeViewItemStyle}">
-                                    <Setter Property="ContextMenu">
-                                        <Setter.Value>
-                                            <ContextMenu>
-                                                <MenuItem Header="Add Vehicle"
-                                                          Command="{Binding DataContext.AddVehicleCommand, Source={x:Reference MainGrid}}" />
-                                                <MenuItem Header="Import Vehicle Folder..."
-                                                          Command="{Binding DataContext.ImportVehicleFolderCommand, Source={x:Reference MainGrid}}" />
-                                                <Separator />
-                                                <MenuItem Header="Delete Vehicle"
-                                                          Command="{Binding DataContext.RemoveVehicleCommand, Source={x:Reference MainGrid}}" />
-                                                <Separator />
-                                                <MenuItem Header="Export handling.meta"
-                                                          Command="{Binding DataContext.ExportSingleMetaCommand, Source={x:Reference MainGrid}}"
-                                                          CommandParameter="handling" />
-                                                <MenuItem Header="Export vehicles.meta"
-                                                          Command="{Binding DataContext.ExportSingleMetaCommand, Source={x:Reference MainGrid}}"
-                                                          CommandParameter="vehicles" />
-                                                <MenuItem Header="Export carvariations.meta"
-                                                          Command="{Binding DataContext.ExportSingleMetaCommand, Source={x:Reference MainGrid}}"
-                                                          CommandParameter="carvariations" />
-                                                <MenuItem Header="Export carcols.meta"
-                                                          Command="{Binding DataContext.ExportSingleMetaCommand, Source={x:Reference MainGrid}}"
-                                                          CommandParameter="carcols" />
-                                            </ContextMenu>
-                                        </Setter.Value>
-                                    </Setter>
-                                </Style>
-                            </HierarchicalDataTemplate.ItemContainerStyle>
-                        </HierarchicalDataTemplate>
-
-                        <!-- Vehicle Node -->
-                        <DataTemplate DataType="{x:Type vm:VehicleTreeNode}">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#x26A0; " FontSize="12"
-                                           Foreground="{DynamicResource WarningBrush}"
-                                           Visibility="{Binding HasWarning, Converter={StaticResource BoolToVis}}" />
-                                <TextBlock Text="{Binding DisplayName}"
-                                           FontSize="12"
-                                           Foreground="{DynamicResource OnSurfaceBrush}" />
-                            </StackPanel>
-                        </DataTemplate>
-                    </TreeView.Resources>
-                </TreeView>
-
-                <!-- Sidebar Footer -->
-                <StackPanel Grid.Row="2" Margin="12,6,12,8">
-                    <Button Content="+ Add Vehicle"
-                            Command="{Binding AddVehicleCommand}"
-                            Padding="8,4" FontSize="11"
-                            HorizontalAlignment="Stretch"
-                            Margin="0,0,0,4" />
-                    <Button Content="Import Files..."
-                            Command="{Binding ImportVehicleFilesCommand}"
-                            Padding="8,4" FontSize="11"
-                            HorizontalAlignment="Stretch" />
-                </StackPanel>
-            </Grid>
+                </Grid>
+            </Border>
 
             <!-- Splitter -->
-            <GridSplitter Grid.Column="1" Width="3"
+            <GridSplitter Grid.Column="1" Width="2"
                           HorizontalAlignment="Center" VerticalAlignment="Stretch"
-                          Background="{DynamicResource BorderBrush}"
+                          Background="Transparent"
                           Visibility="{Binding IsProjectOpen, Converter={StaticResource BoolToVis}}" />
 
-            <!-- Content Area -->
+            <!-- ─── Content Area ─── -->
             <Grid Grid.Column="2" x:Name="MainGrid">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -230,7 +328,10 @@
                 </Grid.RowDefinitions>
 
                 <!-- Tab Bar (visible when vehicle selected) -->
-                <Border Grid.Row="0" Background="{DynamicResource SurfaceVariantBrush}"
+                <Border Grid.Row="0"
+                        Background="{DynamicResource SurfaceBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="0,0,0,1"
                         Visibility="{Binding IsVehicleSelected, Converter={StaticResource BoolToVis}}">
                     <ListBox ItemsSource="{Binding TabItems}"
                              SelectedItem="{Binding SelectedTab}"
@@ -250,19 +351,24 @@
                                         <ControlTemplate TargetType="ListBoxItem">
                                             <Border x:Name="TabBorder"
                                                     Background="Transparent"
-                                                    Padding="16,8"
+                                                    Padding="18,10"
                                                     BorderThickness="0,0,0,2"
                                                     BorderBrush="Transparent">
                                                 <ContentPresenter />
                                             </Border>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsSelected" Value="True">
-                                                    <Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
-                                                    <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                    <Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
                                                 </Trigger>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="TabBorder" Property="Background" Value="#22FFFFFF" />
-                                                </Trigger>
+                                                <MultiTrigger>
+                                                    <MultiTrigger.Conditions>
+                                                        <Condition Property="IsMouseOver" Value="True" />
+                                                        <Condition Property="IsSelected" Value="False" />
+                                                    </MultiTrigger.Conditions>
+                                                    <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource HoverBrush}" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}" />
+                                                </MultiTrigger>
                                             </ControlTemplate.Triggers>
                                         </ControlTemplate>
                                     </Setter.Value>
@@ -271,7 +377,7 @@
                         </ListBox.ItemContainerStyle>
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding Label}" FontSize="13" />
+                                <TextBlock Text="{Binding Label}" FontSize="13" FontWeight="Medium" />
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
@@ -283,32 +389,41 @@
 
                 <!-- Progress Overlay -->
                 <Border Grid.Row="0" Grid.RowSpan="2"
-                        Background="#CC000000"
+                        Background="#DD121216"
                         Visibility="{Binding IsProgressVisible, Converter={StaticResource BoolToVis}}">
-                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Width="300">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Width="320">
+                        <materialDesign:PackIcon Kind="CloudUpload" Width="32" Height="32"
+                                                 Foreground="{DynamicResource AccentBrush}"
+                                                 HorizontalAlignment="Center"
+                                                 Margin="0,0,0,12" />
                         <TextBlock Text="{Binding ProgressMessage}"
                                    Foreground="{DynamicResource OnSurfaceBrush}"
                                    FontSize="14" HorizontalAlignment="Center"
-                                   Margin="0,0,0,12" />
+                                   Margin="0,0,0,16" />
                         <ProgressBar Minimum="0"
                                      Maximum="{Binding ProgressMax}"
                                      Value="{Binding ProgressValue}"
-                                     Height="8" />
+                                     Height="4"
+                                     Foreground="{DynamicResource AccentBrush}" />
                     </StackPanel>
                 </Border>
             </Grid>
         </Grid>
 
-        <!-- Status Bar -->
+        <!-- ═══════════ Status Bar ═══════════ -->
         <StatusBar Grid.Row="2" Style="{DynamicResource StatusBarStyle}">
             <StatusBarItem>
-                <TextBlock Text="{Binding StatusText}" />
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="InformationCircle" Width="14" Height="14"
+                                             VerticalAlignment="Center" Margin="0,0,6,0"
+                                             Foreground="{DynamicResource OnSurfaceVariantBrush}" />
+                    <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" />
+                </StackPanel>
             </StatusBarItem>
             <Separator />
             <StatusBarItem>
                 <TextBlock Text="{Binding AutoSaveIndicator}" />
             </StatusBarItem>
-            <Separator />
             <StatusBarItem HorizontalAlignment="Right">
                 <TextBlock Text="&#169; 2026 Julscha"
                            Foreground="{DynamicResource OnSurfaceVariantBrush}" />
