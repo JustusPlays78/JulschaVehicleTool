@@ -55,6 +55,14 @@ public partial class ModelViewerViewModel : ObservableObject
             LoadFromPath(dialog.FileName);
     }
 
+    public void LoadFromModelData(VehicleModelData modelData)
+    {
+        _vehicleModel = modelData;
+        IsLoaded = true;
+        StatusMessage = "Model loaded from project";
+        UpdateDisplayedMeshes();
+    }
+
     public void LoadFromPath(string yftPath, string? ytdPath = null)
     {
         try

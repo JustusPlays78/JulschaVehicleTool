@@ -1,6 +1,7 @@
 using System.Windows;
 using JulschaVehicleTool.App.ViewModels;
 using JulschaVehicleTool.App.Views;
+using JulschaVehicleTool.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace JulschaVehicleTool.App;
@@ -26,6 +27,15 @@ public partial class App : Application
 
     private static void ConfigureServices(IServiceCollection services)
     {
+        // Core Services
+        services.AddSingleton<IEncryptionService, EncryptionService>();
+        services.AddSingleton<IProjectService, ProjectService>();
+        services.AddSingleton<MetaXmlService>();
+        services.AddSingleton<BinaryFileService>();
+        services.AddSingleton<MeshConversionService>();
+        services.AddSingleton<FiveMExportService>();
+        services.AddSingleton<MetaImportMatchService>();
+
         // ViewModels
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<ModelViewerViewModel>();
@@ -33,6 +43,7 @@ public partial class App : Application
         services.AddSingleton<CarVariationsViewModel>();
         services.AddSingleton<SirenEditorViewModel>();
         services.AddSingleton<VehicleMetaViewModel>();
-        services.AddSingleton<ExportViewModel>();
+        services.AddSingleton<ResourceSettingsViewModel>();
+        services.AddSingleton<WelcomeViewModel>();
     }
 }

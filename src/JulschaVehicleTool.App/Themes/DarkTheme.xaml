@@ -1,17 +1,19 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- Base Colors – Neutral Gray -->
+    <!-- Base Colors – Grey / BlueGrey palette -->
     <Color x:Key="SurfaceColor">#1E1E1E</Color>
-    <Color x:Key="SurfaceVariantColor">#2D2D2D</Color>
+    <Color x:Key="SurfaceVariantColor">#263238</Color>
     <Color x:Key="BackgroundColor">#121212</Color>
-    <Color x:Key="PrimaryColor">#5B9BD5</Color>
-    <Color x:Key="PrimaryVariantColor">#4A8CC7</Color>
-    <Color x:Key="SecondaryColor">#6ABF69</Color>
+    <Color x:Key="PrimaryColor">#78909C</Color>
+    <Color x:Key="PrimaryVariantColor">#607D8B</Color>
+    <Color x:Key="SecondaryColor">#90A4AE</Color>
     <Color x:Key="ErrorColor">#E06C75</Color>
+    <Color x:Key="WarningColor">#FFB74D</Color>
+    <Color x:Key="SuccessColor">#81C784</Color>
     <Color x:Key="OnSurfaceColor">#D4D4D4</Color>
     <Color x:Key="OnSurfaceVariantColor">#9E9E9E</Color>
-    <Color x:Key="BorderColor">#3F3F3F</Color>
+    <Color x:Key="BorderColor">#37474F</Color>
 
     <!-- Brushes -->
     <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource SurfaceColor}" />
@@ -21,6 +23,8 @@
     <SolidColorBrush x:Key="PrimaryVariantBrush" Color="{StaticResource PrimaryVariantColor}" />
     <SolidColorBrush x:Key="SecondaryBrush" Color="{StaticResource SecondaryColor}" />
     <SolidColorBrush x:Key="ErrorBrush" Color="{StaticResource ErrorColor}" />
+    <SolidColorBrush x:Key="WarningBrush" Color="{StaticResource WarningColor}" />
+    <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource SuccessColor}" />
     <SolidColorBrush x:Key="OnSurfaceBrush" Color="{StaticResource OnSurfaceColor}" />
     <SolidColorBrush x:Key="OnSurfaceVariantBrush" Color="{StaticResource OnSurfaceVariantColor}" />
     <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource BorderColor}" />
@@ -53,7 +57,7 @@
                                         <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
                                     </Trigger>
                                     <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="Border" Property="Background" Value="#33FFFFFF" />
+                                        <Setter TargetName="Border" Property="Background" Value="#22FFFFFF" />
                                     </Trigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>
@@ -62,6 +66,15 @@
                 </Style>
             </Setter.Value>
         </Setter>
+    </Style>
+
+    <!-- TreeView Item Style -->
+    <Style x:Key="TreeViewItemStyle" TargetType="TreeViewItem">
+        <Setter Property="Foreground" Value="{StaticResource OnSurfaceBrush}" />
+        <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+        <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
+        <Setter Property="Padding" Value="4,2" />
+        <Setter Property="Cursor" Value="Hand" />
     </Style>
 
     <!-- Header Text Style -->

@@ -23,4 +23,18 @@ public class BinaryFileService
         ytd.Load(data);
         return ytd;
     }
+
+    public YftFile LoadYftFromBytes(byte[] data)
+    {
+        var yft = new YftFile();
+        yft.Load(data);
+        return yft;
+    }
+
+    public YtdFile LoadYtdFromBytes(byte[] data)
+    {
+        var ytd = new YtdFile();
+        ytd.Load(data);
+        return ytd;
+    }
 }

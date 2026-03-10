@@ -1,0 +1,67 @@
+<UserControl x:Class="JulschaVehicleTool.App.Views.ResourceSettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:JulschaVehicleTool.App.ViewModels"
+             d:DataContext="{d:DesignInstance vm:ResourceSettingsViewModel}"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             Background="{DynamicResource BackgroundBrush}">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24,16">
+        <StackPanel MaxWidth="600">
+            <!-- Header -->
+            <TextBlock Text="Resource Settings"
+                       Style="{StaticResource HeaderTextStyle}"
+                       FontSize="20" Margin="0,0,0,20" />
+
+            <!-- Resource Info -->
+            <TextBlock Text="{Binding StatusMessage}"
+                       Foreground="{DynamicResource OnSurfaceVariantBrush}"
+                       FontSize="13" Margin="0,0,0,20" />
+
+            <!-- Export Section -->
+            <TextBlock Text="FIVEM EXPORT"
+                       FontSize="11" FontWeight="Bold"
+                       Foreground="{DynamicResource OnSurfaceVariantBrush}"
+                       Margin="0,0,0,12" />
+
+            <Border Background="{DynamicResource SurfaceVariantBrush}"
+                    CornerRadius="6" Padding="16" Margin="0,0,0,16">
+                <StackPanel>
+                    <!-- Output Path -->
+                    <TextBlock Text="Output Folder" FontSize="12"
+                               Foreground="{DynamicResource OnSurfaceVariantBrush}"
+                               Margin="0,0,0,4" />
+                    <DockPanel Margin="0,0,0,12">
+                        <Button DockPanel.Dock="Right" Content="Browse..."
+                                Command="{Binding BrowseOutputPathCommand}"
+                                Padding="12,6" Margin="8,0,0,0" />
+                        <TextBox Text="{Binding OutputPath, UpdateSourceTrigger=PropertyChanged}"
+                                 Padding="8,6" FontSize="12" />
+                    </DockPanel>
+
+                    <!-- Export Button -->
+                    <Button Content="Export FiveM Resource"
+                            Command="{Binding ExportCommand}"
+                            IsEnabled="{Binding IsExporting, Converter={StaticResource InvertBoolConverter}}"
+                            Padding="16,8" FontSize="13"
+                            HorizontalAlignment="Left" />
+
+                    <!-- Progress -->
+                    <StackPanel Visibility="{Binding IsExporting, Converter={StaticResource BoolToVis}}"
+                                Margin="0,12,0,0">
+                        <ProgressBar Minimum="0"
+                                     Maximum="{Binding ExportTotal}"
+                                     Value="{Binding ExportProgress}"
+                                     Height="6" />
+                        <TextBlock Text="{Binding ExportProgressMessage}"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource OnSurfaceVariantBrush}"
+                                   Margin="0,4,0,0" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

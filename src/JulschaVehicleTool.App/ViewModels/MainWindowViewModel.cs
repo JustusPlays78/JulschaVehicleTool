@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using JulschaVehicleTool.Core.Constants;
@@ -11,71 +12,161 @@ namespace JulschaVehicleTool.App.ViewModels;
 
 public partial class MainWindowViewModel : ObservableObject
 {
-    [ObservableProperty]
-    private ObservableObject? _currentViewModel;
+    // Services
+    private readonly IProjectService _projectService;
+    private readonly MetaXmlService _metaXmlService;
+    private readonly FiveMExportService _exportService;
+    private readonly MetaImportMatchService _matchService;
+    private readonly BinaryFileService _binaryFileService;
+    private readonly MeshConversionService _meshConversionService;
 
-    [ObservableProperty]
-    private NavigationItem? _selectedNavItem;
-
-    [ObservableProperty]
-    private string _statusText = "Ready";
-
-    [ObservableProperty]
-    private string _vehicleName = "No Vehicle";
-
-    [ObservableProperty]
-    private bool _isDirty;
-
-    [ObservableProperty]
-    private string _titleSuffix = "";
-
-    [ObservableProperty]
-    private VehicleEntry? _selectedVehicle;
-
-    public ObservableCollection<NavigationItem> NavigationItems { get; } = new();
-    public ObservableCollection<RecentProjectItem> RecentProjects { get; } = new();
-    public ObservableCollection<VehicleEntry> Vehicles => _currentProject.Vehicles;
-
+    // Child ViewModels
     private readonly ModelViewerViewModel _modelViewerVm;
     private readonly HandlingEditorViewModel _handlingEditorVm;
     private readonly CarVariationsViewModel _carVariationsVm;
     private readonly SirenEditorViewModel _sirenEditorVm;
     private readonly VehicleMetaViewModel _vehicleMetaVm;
-    private readonly ExportViewModel _exportVm;
-    private readonly ProjectService _projectService = new();
+    private readonly ResourceSettingsViewModel _resourceSettingsVm;
+    private readonly WelcomeViewModel _welcomeVm;
 
-    private VehicleProject _currentProject = new();
+    // Auto-save timer
+    private readonly DispatcherTimer _autoSaveTimer;
+
+    // Model cache for 3D viewer
+    private readonly Dictionary<string, VehicleModelData> _modelCache = new();
+
+    // State
+    private Project? _currentProject;
+
+    [ObservableProperty]
+    private ObservableObject? _currentViewModel;
+
+    [ObservableProperty]
+    private TreeNodeViewModel? _selectedTreeNode;
+
+    [ObservableProperty]
+    private NavigationItem? _selectedTab;
+
+    [ObservableProperty]
+    private string _statusText = "Ready";
+
+    [ObservableProperty]
+    private string _titleSuffix = "";
+
+    [ObservableProperty]
+    private bool _isProjectOpen;
+
+    [ObservableProperty]
+    private bool _isVehicleSelected;
+
+    [ObservableProperty]
+    private int _progressValue;
+
+    [ObservableProperty]
+    private int _progressMax;
+
+    [ObservableProperty]
+    private string _progressMessage = "";
+
+    [ObservableProperty]
+    private bool _isProgressVisible;
+
+    [ObservableProperty]
+    private string _autoSaveIndicator = "";
+
+    public ObservableCollection<TreeNodeViewModel> TreeNodes { get; } = new();
+    public ObservableCollection<NavigationItem> TabItems { get; } = new();
+    public string[] HandlingPresetNames => HandlingPresets.All.Select(p => p.Name).ToArray();
 
     public MainWindowViewModel(
+        IProjectService projectService,
+        MetaXmlService metaXmlService,
+        FiveMExportService exportService,
+        MetaImportMatchService matchService,
+        BinaryFileService binaryFileService,
+        MeshConversionService meshConversionService,
         ModelViewerViewModel modelViewerVm,
         HandlingEditorViewModel handlingEditorVm,
         CarVariationsViewModel carVariationsVm,
         SirenEditorViewModel sirenEditorVm,
         VehicleMetaViewModel vehicleMetaVm,
-        ExportViewModel exportVm)
+        ResourceSettingsViewModel resourceSettingsVm,
+        WelcomeViewModel welcomeVm)
     {
+        _projectService = projectService;
+        _metaXmlService = metaXmlService;
+        _exportService = exportService;
+        _matchService = matchService;
+        _binaryFileService = binaryFileService;
+        _meshConversionService = meshConversionService;
         _modelViewerVm = modelViewerVm;
         _handlingEditorVm = handlingEditorVm;
         _carVariationsVm = carVariationsVm;
         _sirenEditorVm = sirenEditorVm;
         _vehicleMetaVm = vehicleMetaVm;
-        _exportVm = exportVm;
+        _resourceSettingsVm = resourceSettingsVm;
+        _welcomeVm = welcomeVm;
 
-        NavigationItems.Add(new NavigationItem("3D Viewer", "Monitor", nameof(ModelViewerViewModel)));
-        NavigationItems.Add(new NavigationItem("Handling", "Gauge", nameof(HandlingEditorViewModel)));
-        NavigationItems.Add(new NavigationItem("Variations", "Palette", nameof(CarVariationsViewModel)));
-        NavigationItems.Add(new NavigationItem("Sirens", "Lightbulb", nameof(SirenEditorViewModel)));
-        NavigationItems.Add(new NavigationItem("Vehicle", "FileDocument", nameof(VehicleMetaViewModel)));
-        NavigationItems.Add(new NavigationItem("Export", "PackageVariant", nameof(ExportViewModel)));
+        // Tab items for vehicle editing
+        TabItems.Add(new NavigationItem("3D Viewer", "Monitor", nameof(ModelViewerViewModel)));
+        TabItems.Add(new NavigationItem("Handling", "Gauge", nameof(HandlingEditorViewModel)));
+        TabItems.Add(new NavigationItem("Variations", "Palette", nameof(CarVariationsViewModel)));
+        TabItems.Add(new NavigationItem("Sirens", "Lightbulb", nameof(SirenEditorViewModel)));
+        TabItems.Add(new NavigationItem("Vehicle", "FileDocument", nameof(VehicleMetaViewModel)));
 
-        SelectedNavItem = NavigationItems[0];
-        _exportVm.Vehicles = _currentProject.Vehicles;
-        LoadRecentProjects();
+        SelectedTab = TabItems[0];
+
+        // Welcome screen events
+        _welcomeVm.CreateProjectRequested += OnCreateProjectRequested;
+        _welcomeVm.OpenProjectRequested += OnOpenProjectRequested;
+
+        // Auto-save timer (5 minutes)
+        _autoSaveTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMinutes(5)
+        };
+        _autoSaveTimer.Tick += (_, _) => AutoSave();
+
+        // Start on welcome screen
+        CurrentViewModel = _welcomeVm;
     }
 
-    partial void OnSelectedNavItemChanged(NavigationItem? value)
+    #region Tree Selection
+
+    partial void OnSelectedTreeNodeChanged(TreeNodeViewModel? value)
     {
-        if (value is null) return;
+        // Auto-save when switching away from a vehicle
+        AutoSave();
+
+        switch (value)
+        {
+            case VehicleTreeNode vehicleNode:
+                IsVehicleSelected = true;
+                LoadVehicleIntoEditors(vehicleNode.Vehicle);
+                OnSelectedTabChanged(SelectedTab);
+                break;
+
+            case ResourceTreeNode resourceNode:
+                IsVehicleSelected = false;
+                _resourceSettingsVm.Load(resourceNode.Resource, _currentProject!);
+                CurrentViewModel = _resourceSettingsVm;
+                break;
+
+            case ProjectTreeNode:
+                IsVehicleSelected = false;
+                CurrentViewModel = null; // Could show project overview
+                break;
+
+            default:
+                IsVehicleSelected = false;
+                CurrentViewModel = null;
+                break;
+        }
+    }
+
+    partial void OnSelectedTabChanged(NavigationItem? value)
+    {
+        if (!IsVehicleSelected || value == null) return;
 
         CurrentViewModel = value.ViewModelKey switch
         {
@@ -84,211 +175,142 @@ public partial class MainWindowViewModel : ObservableObject
             nameof(CarVariationsViewModel) => _carVariationsVm,
             nameof(SirenEditorViewModel) => _sirenEditorVm,
             nameof(VehicleMetaViewModel) => _vehicleMetaVm,
-            nameof(ExportViewModel) => _exportVm,
             _ => null
         };
     }
 
-    #region Vehicle Management
+    #endregion
 
-    partial void OnSelectedVehicleChanged(VehicleEntry? value)
+    #region Vehicle Loading
+
+    private void LoadVehicleIntoEditors(Vehicle vehicle)
     {
-        if (value is null)
+        // Handling
+        if (vehicle.Handling != null)
         {
-            VehicleName = "No Vehicle";
-            ClearEditors();
-            return;
+            _handlingEditorVm.Handling = vehicle.Handling;
+            _handlingEditorVm.IsLoaded = true;
+            _handlingEditorVm.StatusMessage = $"Editing: {vehicle.Name}";
         }
-
-        VehicleName = value.Name;
-        LoadVehicleIntoEditors(value);
-    }
-
-    private void ClearEditors()
-    {
-        _handlingEditorVm.Handling = null;
-        _handlingEditorVm.IsLoaded = false;
-        _handlingEditorVm.StatusMessage = "No handling.meta loaded";
-
-        _carVariationsVm.Variation = null;
-        _carVariationsVm.IsLoaded = false;
-        _carVariationsVm.StatusMessage = "No carvariations.meta loaded";
-
-        _sirenEditorVm.CarCols = null;
-        _sirenEditorVm.SelectedSiren = null;
-        _sirenEditorVm.IsLoaded = false;
-        _sirenEditorVm.StatusMessage = "No carcols.meta loaded";
-
-        _vehicleMetaVm.Vehicle = null;
-        _vehicleMetaVm.IsLoaded = false;
-        _vehicleMetaVm.StatusMessage = "No vehicles.meta loaded";
-    }
-
-    private void LoadVehicleIntoEditors(VehicleEntry vehicle)
-    {
-        // Load meta files into editors
-        if (!string.IsNullOrEmpty(vehicle.HandlingMetaPath) && File.Exists(vehicle.HandlingMetaPath))
-            _handlingEditorVm.LoadFromPath(vehicle.HandlingMetaPath);
-
-        if (!string.IsNullOrEmpty(vehicle.CarVariationsMetaPath) && File.Exists(vehicle.CarVariationsMetaPath))
-            _carVariationsVm.LoadFromPath(vehicle.CarVariationsMetaPath);
-
-        if (!string.IsNullOrEmpty(vehicle.CarColsMetaPath) && File.Exists(vehicle.CarColsMetaPath))
-            _sirenEditorVm.LoadFromPath(vehicle.CarColsMetaPath);
-
-        if (!string.IsNullOrEmpty(vehicle.VehiclesMetaPath) && File.Exists(vehicle.VehiclesMetaPath))
-            _vehicleMetaVm.LoadFromPath(vehicle.VehiclesMetaPath);
-
-        if (!string.IsNullOrEmpty(vehicle.YftFilePath) && File.Exists(vehicle.YftFilePath))
-            _modelViewerVm.LoadFromPath(vehicle.YftFilePath, vehicle.YtdFilePath);
-
-        StatusText = $"Loaded vehicle: {vehicle.Name}";
-    }
-
-    [RelayCommand]
-    private void AddVehicle()
-    {
-        var vehicle = new VehicleEntry { Name = $"Vehicle {_currentProject.Vehicles.Count + 1}" };
-        _currentProject.Vehicles.Add(vehicle);
-        SelectedVehicle = vehicle;
-        IsDirty = true;
-        StatusText = $"Added: {vehicle.Name}";
-    }
-
-    [RelayCommand]
-    private void RemoveVehicle()
-    {
-        if (SelectedVehicle == null) return;
-
-        var name = SelectedVehicle.Name;
-        var idx = _currentProject.Vehicles.IndexOf(SelectedVehicle);
-        _currentProject.Vehicles.Remove(SelectedVehicle);
-
-        if (_currentProject.Vehicles.Count > 0)
-            SelectedVehicle = _currentProject.Vehicles[Math.Max(0, idx - 1)];
         else
-            SelectedVehicle = null;
+        {
+            _handlingEditorVm.Handling = null;
+            _handlingEditorVm.IsLoaded = false;
+            _handlingEditorVm.StatusMessage = "No handling data";
+        }
 
-        IsDirty = true;
-        StatusText = $"Removed: {name}";
+        // Car Variations
+        if (vehicle.CarVariation != null)
+        {
+            _carVariationsVm.Variation = vehicle.CarVariation;
+            _carVariationsVm.IsLoaded = true;
+            _carVariationsVm.StatusMessage = $"Editing: {vehicle.Name}";
+        }
+        else
+        {
+            _carVariationsVm.Variation = null;
+            _carVariationsVm.IsLoaded = false;
+            _carVariationsVm.StatusMessage = "No car variation data";
+        }
+
+        // Sirens / CarCols
+        if (vehicle.CarCols != null)
+        {
+            _sirenEditorVm.CarCols = vehicle.CarCols;
+            _sirenEditorVm.IsLoaded = true;
+            if (vehicle.CarCols.SirenSettings.Count > 0)
+                _sirenEditorVm.SelectedSiren = vehicle.CarCols.SirenSettings[0];
+            _sirenEditorVm.StatusMessage = $"Editing: {vehicle.Name}";
+        }
+        else
+        {
+            _sirenEditorVm.CarCols = null;
+            _sirenEditorVm.SelectedSiren = null;
+            _sirenEditorVm.IsLoaded = false;
+            _sirenEditorVm.StatusMessage = "No carcols data";
+        }
+
+        // Vehicle Meta
+        if (vehicle.VehicleMeta != null)
+        {
+            _vehicleMetaVm.Vehicle = vehicle.VehicleMeta;
+            _vehicleMetaVm.IsLoaded = true;
+            _vehicleMetaVm.StatusMessage = $"Editing: {vehicle.Name}";
+        }
+        else
+        {
+            _vehicleMetaVm.Vehicle = null;
+            _vehicleMetaVm.IsLoaded = false;
+            _vehicleMetaVm.StatusMessage = "No vehicle meta data";
+        }
+
+        // 3D Viewer - load from encrypted project files
+        LoadModelForVehicle(vehicle);
+
+        StatusText = $"Vehicle: {vehicle.Name}";
     }
 
-    [RelayCommand]
-    private void ImportVehicleFiles()
+    private void LoadModelForVehicle(Vehicle vehicle)
     {
-        if (SelectedVehicle == null)
+        if (_currentProject == null || vehicle.YftRelativePath == null) return;
+
+        var cacheKey = $"{vehicle.Name}:{vehicle.YftRelativePath}";
+        if (_modelCache.TryGetValue(cacheKey, out var cached))
         {
-            StatusText = "Select a vehicle first.";
+            _modelViewerVm.LoadFromModelData(cached);
             return;
         }
 
-        var dialog = new OpenFileDialog
+        try
         {
-            Filter = "Vehicle Files|*.yft;*.ytd;*.meta|YFT Models|*.yft|YTD Textures|*.ytd|Meta Files|*.meta|All Files|*.*",
-            Title = "Import files for " + SelectedVehicle.Name,
-            Multiselect = true
-        };
-        if (dialog.ShowDialog() != true) return;
+            var yftBytes = _projectService.DecryptVehicleFile(_currentProject, vehicle, vehicle.YftRelativePath);
+            var yft = _binaryFileService.LoadYftFromBytes(yftBytes);
 
-        foreach (var file in dialog.FileNames)
-        {
-            var fileName = Path.GetFileName(file).ToLowerInvariant();
-            var ext = Path.GetExtension(file).ToLowerInvariant();
+            CodeWalker.GameFiles.YtdFile? ytd = null;
+            if (vehicle.YtdRelativePath != null)
+            {
+                var ytdBytes = _projectService.DecryptVehicleFile(_currentProject, vehicle, vehicle.YtdRelativePath);
+                ytd = _binaryFileService.LoadYtdFromBytes(ytdBytes);
+            }
 
-            if (ext == ".yft")
-            {
-                if (fileName.Contains("_hi"))
-                    SelectedVehicle.YftHiFilePath = file;
-                else
-                    SelectedVehicle.YftFilePath = file;
-            }
-            else if (ext == ".ytd")
-            {
-                if (fileName.Contains("+hi"))
-                    SelectedVehicle.YtdHiFilePath = file;
-                else
-                    SelectedVehicle.YtdFilePath = file;
-            }
-            else if (ext == ".meta")
-            {
-                if (fileName.Contains("handling"))
-                    SelectedVehicle.HandlingMetaPath = file;
-                else if (fileName.Contains("vehicles"))
-                    SelectedVehicle.VehiclesMetaPath = file;
-                else if (fileName.Contains("carvariations"))
-                    SelectedVehicle.CarVariationsMetaPath = file;
-                else if (fileName.Contains("carcols"))
-                    SelectedVehicle.CarColsMetaPath = file;
-                else if (fileName.Contains("vehiclelayouts"))
-                    SelectedVehicle.VehicleLayoutsMetaPath = file;
-            }
+            var modelData = _meshConversionService.ConvertYft(yft, ytd);
+            _modelCache[cacheKey] = modelData;
+            _modelViewerVm.LoadFromModelData(modelData);
         }
-
-        // Auto-detect vehicle name from YFT filename
-        if (!string.IsNullOrEmpty(SelectedVehicle.YftFilePath))
+        catch (Exception ex)
         {
-            var modelName = Path.GetFileNameWithoutExtension(SelectedVehicle.YftFilePath);
-            if (SelectedVehicle.Name.StartsWith("Vehicle "))
-                SelectedVehicle.Name = modelName;
+            _modelViewerVm.StatusMessage = $"Error loading 3D model: {ex.Message}";
+            _modelViewerVm.IsLoaded = false;
         }
-
-        IsDirty = true;
-        LoadVehicleIntoEditors(SelectedVehicle);
-        StatusText = $"Imported {dialog.FileNames.Length} file(s) for {SelectedVehicle.Name}";
     }
 
     #endregion
 
     #region Project Commands
 
-    [RelayCommand]
-    private void NewProject()
-    {
-        _currentProject = _projectService.CreateNew();
-        OnPropertyChanged(nameof(Vehicles));
-        _exportVm.Vehicles = _currentProject.Vehicles;
-        _exportVm.ResourceName = "";
-        SelectedVehicle = null;
-        VehicleName = "No Vehicle";
-        IsDirty = false;
-        TitleSuffix = "";
-        StatusText = "New project created";
-    }
-
-    [RelayCommand]
-    private void OpenProject()
-    {
-        var dialog = new OpenFileDialog
-        {
-            Filter = "Vehicle Project|*.julveh|All Files|*.*",
-            Title = "Open Vehicle Project"
-        };
-        if (dialog.ShowDialog() == true)
-            OpenProjectFromPath(dialog.FileName);
-    }
-
-    public void OpenProjectFromPath(string path)
+    private void OnCreateProjectRequested(string folderPath)
     {
         try
         {
-            _currentProject = _projectService.Load(path);
-            OnPropertyChanged(nameof(Vehicles));
-            IsDirty = false;
-            TitleSuffix = $" - {Path.GetFileName(path)}";
-            _projectService.AddToRecentProjects(path);
-            LoadRecentProjects();
+            _currentProject = _projectService.CreateNew(folderPath);
+            _projectService.AddToRecentProjects(folderPath);
+            OpenProjectInternal();
+            StatusText = $"Created new project: {_currentProject.Name}";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Error creating project: {ex.Message}";
+        }
+    }
 
-            // Select first vehicle if available
-            if (_currentProject.Vehicles.Count > 0)
-                SelectedVehicle = _currentProject.Vehicles[0];
-            else
-                SelectedVehicle = null;
-
-            // Populate export view
-            _exportVm.Vehicles = _currentProject.Vehicles;
-            _exportVm.ResourceName = _currentProject.ProjectName;
-
-            StatusText = $"Opened: {Path.GetFileName(path)} ({_currentProject.Vehicles.Count} vehicle(s))";
+    private void OnOpenProjectRequested(string folderPath)
+    {
+        try
+        {
+            _currentProject = _projectService.Open(folderPath);
+            _projectService.AddToRecentProjects(folderPath);
+            OpenProjectInternal();
+            StatusText = $"Opened: {_currentProject.Name} ({_currentProject.Resources.Count} resource(s))";
         }
         catch (Exception ex)
         {
@@ -296,20 +318,60 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
+    private void OpenProjectInternal()
+    {
+        IsProjectOpen = true;
+        TitleSuffix = $" - {_currentProject!.Name}";
+        _modelCache.Clear();
+        RebuildTree();
+        _autoSaveTimer.Start();
+
+        // Select first vehicle if available
+        if (TreeNodes.Count > 0 && TreeNodes[0].Children.Count > 0)
+        {
+            var firstResource = TreeNodes[0].Children[0];
+            if (firstResource.Children.Count > 0)
+                SelectedTreeNode = firstResource.Children[0];
+            else
+                SelectedTreeNode = firstResource;
+        }
+    }
+
+    [RelayCommand]
+    private void NewProject()
+    {
+        var dialog = new Ookii.Dialogs.Wpf.VistaFolderBrowserDialog
+        {
+            Description = "Select folder for new project",
+            UseDescriptionForTitle = true,
+        };
+        if (dialog.ShowDialog() == true)
+            OnCreateProjectRequested(dialog.SelectedPath);
+    }
+
+    [RelayCommand]
+    private void OpenProject()
+    {
+        var dialog = new Ookii.Dialogs.Wpf.VistaFolderBrowserDialog
+        {
+            Description = "Open project folder",
+            UseDescriptionForTitle = true,
+        };
+        if (dialog.ShowDialog() == true)
+            OnOpenProjectRequested(dialog.SelectedPath);
+    }
+
     [RelayCommand]
     private void SaveProject()
     {
-        if (string.IsNullOrEmpty(_currentProject.ProjectFilePath))
-        {
-            SaveProjectAs();
-            return;
-        }
+        if (_currentProject == null) return;
 
         try
         {
-            _projectService.Save(_currentProject, _currentProject.ProjectFilePath);
-            IsDirty = false;
-            StatusText = $"Saved: {Path.GetFileName(_currentProject.ProjectFilePath)}";
+            _projectService.Save(_currentProject);
+            _currentProject.IsDirty = false;
+            AutoSaveIndicator = $"Saved {DateTime.Now:HH:mm}";
+            StatusText = $"Project saved";
         }
         catch (Exception ex)
         {
@@ -320,22 +382,22 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void SaveProjectAs()
     {
-        var dialog = new SaveFileDialog
+        if (_currentProject == null) return;
+
+        var dialog = new Ookii.Dialogs.Wpf.VistaFolderBrowserDialog
         {
-            Filter = "Vehicle Project|*.julveh|All Files|*.*",
-            FileName = $"{_currentProject.ProjectName}.julveh",
-            Title = "Save Vehicle Project"
+            Description = "Save project to folder",
+            UseDescriptionForTitle = true,
         };
         if (dialog.ShowDialog() != true) return;
 
         try
         {
-            _projectService.Save(_currentProject, dialog.FileName);
-            _projectService.AddToRecentProjects(dialog.FileName);
-            LoadRecentProjects();
-            IsDirty = false;
-            TitleSuffix = $" - {Path.GetFileName(dialog.FileName)}";
-            StatusText = $"Saved: {Path.GetFileName(dialog.FileName)}";
+            _projectService.SaveAs(_currentProject, dialog.SelectedPath);
+            _projectService.AddToRecentProjects(dialog.SelectedPath);
+            _currentProject.IsDirty = false;
+            TitleSuffix = $" - {_currentProject.Name}";
+            StatusText = $"Project saved as: {dialog.SelectedPath}";
         }
         catch (Exception ex)
         {
@@ -344,12 +406,254 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void OpenRecentProject(string? path)
+    private void CloseProject()
     {
-        if (!string.IsNullOrEmpty(path) && File.Exists(path))
-            OpenProjectFromPath(path);
-        else
-            StatusText = "Recent project file not found.";
+        if (_currentProject != null && _currentProject.IsDirty)
+            SaveProject();
+
+        _currentProject = null;
+        _autoSaveTimer.Stop();
+        IsProjectOpen = false;
+        IsVehicleSelected = false;
+        TreeNodes.Clear();
+        _modelCache.Clear();
+        TitleSuffix = "";
+        StatusText = "Ready";
+
+        _welcomeVm.RefreshRecentProjects();
+        CurrentViewModel = _welcomeVm;
+    }
+
+    private void AutoSave()
+    {
+        if (_currentProject == null || !_currentProject.IsDirty) return;
+
+        try
+        {
+            _projectService.Save(_currentProject);
+            _currentProject.IsDirty = false;
+            AutoSaveIndicator = $"Auto-saved {DateTime.Now:HH:mm}";
+        }
+        catch
+        {
+            // Silent fail for auto-save
+        }
+    }
+
+    #endregion
+
+    #region Resource Management
+
+    [RelayCommand]
+    private void AddResource()
+    {
+        if (_currentProject == null) return;
+
+        var resource = new Resource { Name = $"resource_{_currentProject.Resources.Count + 1}" };
+        _currentProject.Resources.Add(resource);
+        _currentProject.IsDirty = true;
+        RebuildTree();
+
+        // Select the new resource
+        var projectNode = TreeNodes.FirstOrDefault();
+        if (projectNode != null)
+            SelectedTreeNode = projectNode.Children.LastOrDefault();
+
+        StatusText = $"Added resource: {resource.Name}";
+    }
+
+    [RelayCommand]
+    private void RemoveResource()
+    {
+        if (_currentProject == null || SelectedTreeNode is not ResourceTreeNode resourceNode) return;
+
+        _currentProject.Resources.Remove(resourceNode.Resource);
+        _currentProject.IsDirty = true;
+        RebuildTree();
+        StatusText = $"Removed resource: {resourceNode.Resource.Name}";
+    }
+
+    #endregion
+
+    #region Vehicle Management
+
+    [RelayCommand]
+    private void AddVehicle()
+    {
+        Resource? resource = SelectedTreeNode switch
+        {
+            ResourceTreeNode rn => rn.Resource,
+            VehicleTreeNode vn => FindResourceForVehicle(vn.Vehicle),
+            _ => null
+        };
+
+        if (resource == null)
+        {
+            StatusText = "Select a resource first.";
+            return;
+        }
+
+        var vehicle = VehicleDefaults.CreateDefault($"vehicle_{resource.Vehicles.Count + 1}");
+        resource.Vehicles.Add(vehicle);
+        _currentProject!.IsDirty = true;
+        RebuildTree();
+
+        // Select the new vehicle
+        SelectVehicleInTree(vehicle);
+        StatusText = $"Added vehicle: {vehicle.Name}";
+    }
+
+    [RelayCommand]
+    private void RemoveVehicle()
+    {
+        if (SelectedTreeNode is not VehicleTreeNode vehicleNode) return;
+
+        var resource = FindResourceForVehicle(vehicleNode.Vehicle);
+        if (resource == null) return;
+
+        resource.Vehicles.Remove(vehicleNode.Vehicle);
+        _currentProject!.IsDirty = true;
+        RebuildTree();
+        StatusText = $"Removed vehicle: {vehicleNode.Vehicle.Name}";
+    }
+
+    [RelayCommand]
+    private void ImportVehicleFiles()
+    {
+        if (_currentProject == null || SelectedTreeNode is not VehicleTreeNode vehicleNode) return;
+
+        var dialog = new OpenFileDialog
+        {
+            Filter = "Vehicle Files|*.yft;*.ytd|YFT Models|*.yft|YTD Textures|*.ytd|All Files|*.*",
+            Title = $"Import files for {vehicleNode.Vehicle.Name}",
+            Multiselect = true
+        };
+        if (dialog.ShowDialog() != true) return;
+
+        try
+        {
+            _projectService.ImportVehicleFiles(_currentProject, vehicleNode.Vehicle, dialog.FileNames);
+            _currentProject.IsDirty = true;
+            RebuildTree();
+            LoadVehicleIntoEditors(vehicleNode.Vehicle);
+            StatusText = $"Imported {dialog.FileNames.Length} file(s) for {vehicleNode.Vehicle.Name}";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Import error: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private void ImportVehicleFolder()
+    {
+        Resource? resource = SelectedTreeNode switch
+        {
+            ResourceTreeNode rn => rn.Resource,
+            VehicleTreeNode vn => FindResourceForVehicle(vn.Vehicle),
+            _ => null
+        };
+
+        if (_currentProject == null || resource == null)
+        {
+            StatusText = "Select a resource first.";
+            return;
+        }
+
+        var dialog = new Ookii.Dialogs.Wpf.VistaFolderBrowserDialog
+        {
+            Description = "Select vehicle folder to import",
+            UseDescriptionForTitle = true,
+        };
+        if (dialog.ShowDialog() != true) return;
+
+        try
+        {
+            IsProgressVisible = true;
+            var progress = new Progress<(int current, int total, string message)>(p =>
+            {
+                ProgressValue = p.current;
+                ProgressMax = p.total;
+                ProgressMessage = p.message;
+            });
+
+            _projectService.ImportVehicleFolder(_currentProject, resource, dialog.SelectedPath, progress);
+            _currentProject.IsDirty = true;
+            RebuildTree();
+            StatusText = $"Imported vehicle(s) from: {Path.GetFileName(dialog.SelectedPath)}";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Import error: {ex.Message}";
+        }
+        finally
+        {
+            IsProgressVisible = false;
+        }
+    }
+
+    [RelayCommand]
+    private void ImportMetaFile()
+    {
+        if (_currentProject == null || SelectedTreeNode is not VehicleTreeNode vehicleNode) return;
+
+        var dialog = new OpenFileDialog
+        {
+            Filter = "Meta Files|*.meta|All Files|*.*",
+            Title = "Import meta file",
+            Multiselect = true
+        };
+        if (dialog.ShowDialog() != true) return;
+
+        var vehicle = vehicleNode.Vehicle;
+        foreach (var file in dialog.FileNames)
+        {
+            var fileName = Path.GetFileName(file).ToLowerInvariant();
+            try
+            {
+                if (fileName.Contains("handling"))
+                    vehicle.Handling = _metaXmlService.LoadHandling(file);
+                else if (fileName.Contains("vehicles"))
+                    vehicle.VehicleMeta = _metaXmlService.LoadVehicleMeta(file);
+                else if (fileName.Contains("carvariations"))
+                    vehicle.CarVariation = _metaXmlService.LoadCarVariations(file);
+                else if (fileName.Contains("carcols"))
+                    vehicle.CarCols = _metaXmlService.LoadCarCols(file);
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"Error importing {fileName}: {ex.Message}";
+                return;
+            }
+        }
+
+        _currentProject.IsDirty = true;
+        LoadVehicleIntoEditors(vehicle);
+        StatusText = $"Imported {dialog.FileNames.Length} meta file(s) for {vehicle.Name}";
+    }
+
+    [RelayCommand]
+    private void ExportSingleMeta(string? metaType)
+    {
+        if (string.IsNullOrEmpty(metaType) || SelectedTreeNode is not VehicleTreeNode vehicleNode) return;
+
+        var dialog = new SaveFileDialog
+        {
+            Filter = "Meta Files|*.meta|All Files|*.*",
+            FileName = $"{metaType}.meta",
+            Title = $"Export {metaType}.meta"
+        };
+        if (dialog.ShowDialog() != true) return;
+
+        try
+        {
+            _exportService.ExportSingleMeta(vehicleNode.Vehicle, metaType, dialog.FileName, _metaXmlService);
+            StatusText = $"Exported {metaType}.meta";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Export error: {ex.Message}";
+        }
     }
 
     #endregion
@@ -359,39 +663,157 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void ApplyHandlingPreset(string? presetName)
     {
-        if (string.IsNullOrEmpty(presetName)) return;
+        if (string.IsNullOrEmpty(presetName) || SelectedTreeNode is not VehicleTreeNode vehicleNode) return;
 
         var preset = HandlingPresets.All.FirstOrDefault(p => p.Name == presetName);
         if (preset.Create == null) return;
 
         var handling = preset.Create();
+        vehicleNode.Vehicle.Handling = handling;
         _handlingEditorVm.Handling = handling;
         _handlingEditorVm.IsLoaded = true;
         _handlingEditorVm.StatusMessage = $"Applied preset: {presetName}";
-        IsDirty = true;
+        _currentProject!.IsDirty = true;
 
-        // Navigate to handling editor
-        SelectedNavItem = NavigationItems[1];
+        // Navigate to handling tab
+        SelectedTab = TabItems[1];
         StatusText = $"Handling preset applied: {presetName}";
     }
 
-    public string[] HandlingPresetNames => HandlingPresets.All.Select(p => p.Name).ToArray();
+    #endregion
+
+    #region ZIP Export/Import
+
+    [RelayCommand]
+    private async Task ExportProjectZipAsync()
+    {
+        if (_currentProject == null) return;
+
+        var dialog = new SaveFileDialog
+        {
+            Filter = "ZIP Archive|*.zip",
+            FileName = $"{_currentProject.Name}.zip",
+            Title = "Export project as ZIP"
+        };
+        if (dialog.ShowDialog() != true) return;
+
+        // TODO: Show PasswordDialog to get password
+        var password = "temp_password";
+
+        try
+        {
+            IsProgressVisible = true;
+            var progress = new Progress<(int current, int total, string message)>(p =>
+            {
+                ProgressValue = p.current;
+                ProgressMax = p.total;
+                ProgressMessage = p.message;
+            });
+
+            await Task.Run(() => _projectService.ExportProjectZip(_currentProject, dialog.FileName, password, progress));
+            StatusText = $"Project exported: {dialog.FileName}";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Export error: {ex.Message}";
+        }
+        finally
+        {
+            IsProgressVisible = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ImportProjectZipAsync()
+    {
+        var openDialog = new OpenFileDialog
+        {
+            Filter = "ZIP Archive|*.zip",
+            Title = "Import project from ZIP"
+        };
+        if (openDialog.ShowDialog() != true) return;
+
+        var folderDialog = new Ookii.Dialogs.Wpf.VistaFolderBrowserDialog
+        {
+            Description = "Select target folder for imported project",
+            UseDescriptionForTitle = true,
+        };
+        if (folderDialog.ShowDialog() != true) return;
+
+        // TODO: Show PasswordDialog to get password
+        var password = "temp_password";
+
+        try
+        {
+            IsProgressVisible = true;
+            var progress = new Progress<(int current, int total, string message)>(p =>
+            {
+                ProgressValue = p.current;
+                ProgressMax = p.total;
+                ProgressMessage = p.message;
+            });
+
+            _currentProject = await Task.Run(() =>
+                _projectService.ImportProjectZip(openDialog.FileName, password, folderDialog.SelectedPath, progress));
+
+            _projectService.AddToRecentProjects(folderDialog.SelectedPath);
+            OpenProjectInternal();
+            StatusText = $"Imported project: {_currentProject.Name}";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Import error: {ex.Message}";
+        }
+        finally
+        {
+            IsProgressVisible = false;
+        }
+    }
 
     #endregion
 
-    #region Recent Projects
+    #region Tree Building
 
-    private void LoadRecentProjects()
+    private void RebuildTree()
     {
-        RecentProjects.Clear();
-        foreach (var path in _projectService.LoadRecentProjects())
+        TreeNodes.Clear();
+        if (_currentProject == null) return;
+
+        var projectNode = new ProjectTreeNode(_currentProject);
+
+        foreach (var resource in _currentProject.Resources)
         {
-            RecentProjects.Add(new RecentProjectItem
+            var resourceNode = new ResourceTreeNode(resource);
+            foreach (var vehicle in resource.Vehicles)
             {
-                FilePath = path,
-                DisplayName = Path.GetFileNameWithoutExtension(path),
-                FolderPath = Path.GetDirectoryName(path) ?? ""
-            });
+                resourceNode.Children.Add(new VehicleTreeNode(vehicle, _currentProject.FolderPath));
+            }
+            projectNode.Children.Add(resourceNode);
+        }
+
+        TreeNodes.Add(projectNode);
+    }
+
+    private Resource? FindResourceForVehicle(Vehicle vehicle)
+    {
+        return _currentProject?.Resources.FirstOrDefault(r => r.Vehicles.Contains(vehicle));
+    }
+
+    private void SelectVehicleInTree(Vehicle vehicle)
+    {
+        foreach (var projectNode in TreeNodes)
+        {
+            foreach (var resourceNode in projectNode.Children)
+            {
+                foreach (var vehicleNode in resourceNode.Children)
+                {
+                    if (vehicleNode is VehicleTreeNode vn && vn.Vehicle == vehicle)
+                    {
+                        SelectedTreeNode = vn;
+                        return;
+                    }
+                }
+            }
         }
     }
 
@@ -417,4 +839,13 @@ public class RecentProjectItem
     public string FilePath { get; set; } = "";
     public string DisplayName { get; set; } = "";
     public string FolderPath { get; set; } = "";
+}
+
+public class InvertBoolConverter : System.Windows.Data.IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        => value is bool b && !b;
+
+    public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        => value is bool b && !b;
 }

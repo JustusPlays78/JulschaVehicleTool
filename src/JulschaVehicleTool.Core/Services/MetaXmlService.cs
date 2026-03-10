@@ -743,6 +743,146 @@ public class MetaXmlService
 
     #endregion
 
+    #region Multi-Vehicle Loading (for import matching)
+
+    /// <summary>
+    /// Loads all handling entries from a handling.meta file, keyed by handlingName.
+    /// </summary>
+    public Dictionary<string, HandlingData> LoadAllHandlings(string filePath)
+    {
+        var doc = XDocument.Load(filePath);
+        var result = new Dictionary<string, HandlingData>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var item in doc.Descendants("Item").Where(i => i.Attribute("type")?.Value == "CHandlingData"))
+        {
+            var data = ParseHandlingItem(item);
+            if (!string.IsNullOrEmpty(data.HandlingName))
+                result[data.HandlingName] = data;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Loads all car variation entries from a carvariations.meta file, keyed by modelName.
+    /// </summary>
+    public Dictionary<string, CarVariationData> LoadAllCarVariations(string filePath)
+    {
+        var doc = XDocument.Load(filePath);
+        var result = new Dictionary<string, CarVariationData>(StringComparer.OrdinalIgnoreCase);
+
+        var variationData = doc.Descendants("variationData").FirstOrDefault();
+        if (variationData == null) return result;
+
+        foreach (var item in variationData.Elements("Item"))
+        {
+            var modelName = item.Element("modelName")?.Value ?? "";
+            if (string.IsNullOrEmpty(modelName)) continue;
+
+            var data = new CarVariationData
+            {
+                ModelName = modelName,
+                LightSettings = GetInt(item, "lightSettings"),
+                SirenSettings = GetInt(item, "sirenSettings"),
+            };
+
+            var colors = item.Element("colors");
+            if (colors != null)
+            {
+                foreach (var colorItem in colors.Elements("Item"))
+                {
+                    var combo = new ColorCombination();
+                    var indices = colorItem.Element("indices")?.Value?.Trim()
+                        .Split([' ', '\n', '\r', '\t'], StringSplitOptions.RemoveEmptyEntries);
+                    if (indices is { Length: >= 1 }) combo.PrimaryColor = int.Parse(indices[0], Inv);
+                    if (indices is { Length: >= 2 }) combo.SecondaryColor = int.Parse(indices[1], Inv);
+                    if (indices is { Length: >= 3 }) combo.PearlescentColor = int.Parse(indices[2], Inv);
+                    if (indices is { Length: >= 4 }) combo.RimColor = int.Parse(indices[3], Inv);
+                    if (indices is { Length: >= 5 }) combo.InteriorTrimColor = int.Parse(indices[4], Inv);
+                    if (indices is { Length: >= 6 }) combo.DashboardColor = int.Parse(indices[5], Inv);
+
+                    var liveries = colorItem.Element("liveries");
+                    if (liveries != null)
+                        foreach (var liv in liveries.Elements("Item"))
+                            combo.Liveries.Add(liv.Attribute("value")?.Value == "true");
+
+                    data.Colors.Add(combo);
+                }
+            }
+
+            var kits = item.Element("kits");
+            if (kits != null)
+                foreach (var kit in kits.Elements("Item"))
+                    data.Kits.Add(kit.Value?.Trim() ?? "");
+
+            var plates = item.Element("plateProbabilities")?.Element("Probabilities");
+            if (plates != null)
+            {
+                foreach (var plate in plates.Elements("Item"))
+                {
+                    data.PlateProbabilities.Add(new PlateProbability
+                    {
+                        Name = plate.Element("Name")?.Value ?? "",
+                        Value = int.TryParse(plate.Element("Value")?.Attribute("value")?.Value, out var v) ? v : 100
+                    });
+                }
+            }
+
+            result[modelName] = data;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Loads all vehicle meta entries from a vehicles.meta file, keyed by modelName.
+    /// </summary>
+    public Dictionary<string, VehicleMetaData> LoadAllVehicleMetas(string filePath)
+    {
+        var doc = XDocument.Load(filePath);
+        var result = new Dictionary<string, VehicleMetaData>(StringComparer.OrdinalIgnoreCase);
+
+        var initDatas = doc.Descendants("InitDatas").FirstOrDefault();
+        if (initDatas == null) return result;
+
+        foreach (var item in initDatas.Elements("Item"))
+        {
+            var modelName = item.Element("modelName")?.Value ?? "";
+            if (string.IsNullOrEmpty(modelName)) continue;
+
+            result[modelName] = new VehicleMetaData
+            {
+                ModelName = modelName,
+                TxdName = item.Element("txdName")?.Value ?? "",
+                HandlingId = item.Element("handlingId")?.Value ?? "",
+                GameName = item.Element("gameName")?.Value ?? "",
+                VehicleMakeName = item.Element("vehicleMakeName")?.Value ?? "",
+                Type = GetStr(item, "type"),
+                PlateType = GetStr(item, "plateType"),
+                DashboardType = GetStr(item, "dashboardType"),
+                VehicleClass = GetStr(item, "vehicleClass"),
+                WheelType = GetStr(item, "wheelType"),
+                Layout = item.Element("layout")?.Value ?? "",
+                Flags = GetStr(item, "flags"),
+                StrFlags = GetStr(item, "strFlags"),
+                AudioNameHash = item.Element("audioNameHash")?.Value ?? "",
+                Swankness = GetStr(item, "swankness"),
+                MaxPassengers = GetInt(item, "maxPassengers"),
+                Mass = GetFloat(item, "mass"),
+                PercentSubmergedLevel = GetFloat(item, "percentSubmerged"),
+                PrevehicleConvRoofDismount = GetFloat(item, "prevehicleConvRoofDismount"),
+                SearchLight = GetFloat(item, "searchLight"),
+                DiffuseColor = GetInt(item, "diffuseColor"),
+                Rewards = item.Element("rewards")?.Value ?? "",
+                CinematicPartCamera = item.Element("cinematicPartCamera")?.Value ?? "",
+            };
+        }
+
+        return result;
+    }
+
+    #endregion
+
     #region XML Helpers
 
     private static float GetFloat(XElement? parent, string name)

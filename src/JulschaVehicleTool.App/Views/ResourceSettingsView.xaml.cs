@@ -2,9 +2,9 @@ using System.Windows.Controls;
 
 namespace JulschaVehicleTool.App.Views;
 
-public partial class ExportView : UserControl
+public partial class ResourceSettingsView : UserControl
 {
-    public ExportView()
+    public ResourceSettingsView()
     {
         InitializeComponent();
     }

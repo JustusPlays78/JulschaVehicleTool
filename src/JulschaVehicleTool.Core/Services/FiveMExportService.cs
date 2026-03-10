@@ -8,124 +8,141 @@ public class FiveMExportService
 {
     private const long StreamFileSizeLimit = 16 * 1024 * 1024; // 16 MB
 
-    public ExportResult Export(ExportOptions options)
+    /// <summary>
+    /// Exports a FiveM resource from a Resource with inline meta data.
+    /// Generates XML meta files from inline data and decrypts binary files.
+    /// </summary>
+    public ExportResult ExportResource(FiveMExportOptions options,
+        IProgress<(int current, int total, string message)>? progress = null)
     {
         var result = new ExportResult();
-        var outputDir = options.OutputPath;
+        var resource = options.Resource;
+        var project = options.Project;
 
-        if (options.Vehicles.Count == 0)
+        if (resource.Vehicles.Count == 0)
         {
             result.Error = "No vehicles to export.";
             return result;
         }
 
+        var outputDir = options.OutputPath;
         Directory.CreateDirectory(outputDir);
         Directory.CreateDirectory(Path.Combine(outputDir, "stream"));
         Directory.CreateDirectory(Path.Combine(outputDir, "data"));
 
         var usedStreamNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var usedFolderNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var total = resource.Vehicles.Count * 2 + 2; // stream + meta per vehicle + manifest + names
+        var current = 0;
 
-        // Process each vehicle
-        foreach (var vehicle in options.Vehicles)
+        var metaXmlService = options.MetaXmlService;
+        var projectService = options.ProjectService;
+
+        foreach (var vehicle in resource.Vehicles)
         {
-            CopyStreamFiles(vehicle, outputDir, result, usedStreamNames);
-            CopyMetaFiles(vehicle, outputDir, result, usedFolderNames);
+            progress?.Report((++current, total, $"Copying stream files for {vehicle.Name}..."));
+            CopyStreamFilesFromProject(project, vehicle, outputDir, result, usedStreamNames, projectService);
+
+            progress?.Report((++current, total, $"Generating meta files for {vehicle.Name}..."));
+            GenerateMetaFilesFromInline(vehicle, outputDir, result, usedFolderNames, metaXmlService);
         }
 
-        // Generate fxmanifest.lua
-        GenerateManifest(options, outputDir);
+        progress?.Report((++current, total, "Generating fxmanifest.lua..."));
+        GenerateResourceManifest(resource, outputDir);
 
-        // Generate vehicle_names.lua (optional)
-        if (options.IncludeVehicleNames)
-            GenerateVehicleNames(options, outputDir);
+        if (resource.IncludeVehicleNames)
+        {
+            progress?.Report((++current, total, "Generating vehicle_names.lua..."));
+            GenerateResourceVehicleNames(resource, outputDir);
+        }
 
         result.Success = true;
         result.OutputPath = outputDir;
         return result;
     }
 
-    private void CopyStreamFiles(VehicleEntry vehicle, string outputDir, ExportResult result, HashSet<string> usedNames)
+    private void CopyStreamFilesFromProject(Project project, Vehicle vehicle, string outputDir,
+        ExportResult result, HashSet<string> usedNames, IProjectService projectService)
     {
         var streamDir = Path.Combine(outputDir, "stream");
-
-        var streamFiles = new[]
+        var relativePaths = new[]
         {
-            vehicle.YftFilePath,
-            vehicle.YftHiFilePath,
-            vehicle.YtdFilePath,
-            vehicle.YtdHiFilePath
+            vehicle.YftRelativePath,
+            vehicle.YftHiRelativePath,
+            vehicle.YtdRelativePath,
+            vehicle.YtdHiRelativePath
         };
 
-        foreach (var filePath in streamFiles)
+        foreach (var relPath in relativePaths)
         {
-            if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
-                continue;
+            if (string.IsNullOrEmpty(relPath)) continue;
 
-            var fi = new FileInfo(filePath);
-
-            if (!usedNames.Add(fi.Name))
+            try
             {
-                result.Warnings.Add(
-                    $"COLLISION: {fi.Name} ({vehicle.Name}) overwrites a file from another vehicle in stream/. " +
-                    "Rename one of the YFT/YTD files to avoid this.");
-            }
+                var fileName = Path.GetFileName(relPath);
 
-            if (fi.Length > StreamFileSizeLimit)
+                if (!usedNames.Add(fileName))
+                {
+                    result.Warnings.Add(
+                        $"COLLISION: {fileName} ({vehicle.Name}) overwrites a file from another vehicle in stream/.");
+                }
+
+                var decryptedBytes = projectService.DecryptVehicleFile(project, vehicle, relPath);
+
+                if (decryptedBytes.Length > StreamFileSizeLimit)
+                {
+                    result.Warnings.Add(
+                        $"WARNING: {fileName} ({vehicle.Name}) is {decryptedBytes.Length / (1024.0 * 1024.0):F1} MB - exceeds FiveM 16 MB stream limit.");
+                }
+
+                File.WriteAllBytes(Path.Combine(streamDir, fileName), decryptedBytes);
+            }
+            catch (FileNotFoundException)
             {
-                result.Warnings.Add(
-                    $"WARNING: {fi.Name} ({vehicle.Name}) is {fi.Length / (1024.0 * 1024.0):F1} MB - exceeds FiveM 16 MB stream limit. " +
-                    "This may cause crashes. Consider compressing textures or splitting the YTD.");
+                result.Warnings.Add($"Missing file: {relPath} for vehicle {vehicle.Name}");
             }
-
-            File.Copy(filePath, Path.Combine(streamDir, fi.Name), overwrite: true);
         }
     }
 
-    private void CopyMetaFiles(VehicleEntry vehicle, string outputDir, ExportResult result, HashSet<string> usedFolders)
+    private void GenerateMetaFilesFromInline(Vehicle vehicle, string outputDir,
+        ExportResult result, HashSet<string> usedFolders, MetaXmlService metaXmlService)
     {
-        // Each vehicle gets its own subfolder under data/
         var folderName = SanitizeFolderName(vehicle.Name);
         if (!usedFolders.Add(folderName))
         {
             result.Warnings.Add(
-                $"COLLISION: Vehicle '{vehicle.Name}' maps to data folder '{folderName}/' which is already used by another vehicle. " +
-                "Meta files will be overwritten. Rename one of the vehicles.");
+                $"COLLISION: Vehicle '{vehicle.Name}' maps to data folder '{folderName}/' which is already used.");
         }
+
         var vehicleDataDir = Path.Combine(outputDir, "data", folderName);
         Directory.CreateDirectory(vehicleDataDir);
 
-        var metaFiles = new[]
-        {
-            vehicle.HandlingMetaPath,
-            vehicle.VehiclesMetaPath,
-            vehicle.CarVariationsMetaPath,
-            vehicle.CarColsMetaPath,
-            vehicle.VehicleLayoutsMetaPath
-        };
+        if (vehicle.Handling != null)
+            metaXmlService.SaveHandling(vehicle.Handling, Path.Combine(vehicleDataDir, "handling.meta"));
 
-        foreach (var filePath in metaFiles)
-        {
-            if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
-                continue;
+        if (vehicle.VehicleMeta != null)
+            metaXmlService.SaveVehicleMeta(vehicle.VehicleMeta, Path.Combine(vehicleDataDir, "vehicles.meta"));
 
-            File.Copy(filePath, Path.Combine(vehicleDataDir, Path.GetFileName(filePath)), overwrite: true);
-        }
+        if (vehicle.CarVariation != null)
+            metaXmlService.SaveCarVariations(vehicle.CarVariation, Path.Combine(vehicleDataDir, "carvariations.meta"));
+
+        if (vehicle.CarCols != null)
+            metaXmlService.SaveCarCols(vehicle.CarCols, Path.Combine(vehicleDataDir, "carcols.meta"));
     }
 
-    private void GenerateManifest(ExportOptions options, string outputDir)
+    private void GenerateResourceManifest(Resource resource, string outputDir)
     {
         var sb = new StringBuilder();
         sb.AppendLine("fx_version 'cerulean'");
         sb.AppendLine("game { 'gta5' }");
         sb.AppendLine();
 
-        if (!string.IsNullOrWhiteSpace(options.Author))
-            sb.AppendLine($"author '{EscapeLua(options.Author)}'");
-        if (!string.IsNullOrWhiteSpace(options.ResourceName))
-            sb.AppendLine($"description '{EscapeLua(options.ResourceName)}'");
-        if (!string.IsNullOrWhiteSpace(options.Version))
-            sb.AppendLine($"version '{EscapeLua(options.Version)}'");
+        if (!string.IsNullOrWhiteSpace(resource.Author))
+            sb.AppendLine($"author '{EscapeLua(resource.Author)}'");
+        if (!string.IsNullOrWhiteSpace(resource.Name))
+            sb.AppendLine($"description '{EscapeLua(resource.Name)}'");
+        if (!string.IsNullOrWhiteSpace(resource.Version))
+            sb.AppendLine($"version '{EscapeLua(resource.Version)}'");
 
         sb.AppendLine();
         sb.AppendLine("files {");
@@ -133,47 +150,26 @@ public class FiveMExportService
         sb.AppendLine("}");
         sb.AppendLine();
 
-        // Determine which meta types exist across all vehicles
-        bool hasHandling = false, hasCarCols = false, hasCarVariations = false;
-        bool hasVehicleLayouts = false, hasVehicles = false;
+        bool hasHandling = false, hasCarCols = false, hasCarVariations = false, hasVehicles = false;
 
-        foreach (var vehicle in options.Vehicles)
+        foreach (var v in resource.Vehicles)
         {
-            if (!string.IsNullOrEmpty(vehicle.HandlingMetaPath) && File.Exists(vehicle.HandlingMetaPath))
-                hasHandling = true;
-            if (!string.IsNullOrEmpty(vehicle.CarColsMetaPath) && File.Exists(vehicle.CarColsMetaPath))
-                hasCarCols = true;
-            if (!string.IsNullOrEmpty(vehicle.CarVariationsMetaPath) && File.Exists(vehicle.CarVariationsMetaPath))
-                hasCarVariations = true;
-            if (!string.IsNullOrEmpty(vehicle.VehicleLayoutsMetaPath) && File.Exists(vehicle.VehicleLayoutsMetaPath))
-                hasVehicleLayouts = true;
-            if (!string.IsNullOrEmpty(vehicle.VehiclesMetaPath) && File.Exists(vehicle.VehiclesMetaPath))
-                hasVehicles = true;
+            if (v.Handling != null) hasHandling = true;
+            if (v.CarCols != null) hasCarCols = true;
+            if (v.CarVariation != null) hasCarVariations = true;
+            if (v.VehicleMeta != null) hasVehicles = true;
         }
-
-        // CRITICAL: data_file order matters!
-        // vehiclelayouts MUST be before vehicles.meta
-        // vehicles.meta MUST be LAST
 
         if (hasHandling)
             sb.AppendLine("data_file 'HANDLING_FILE'           'data/**/handling.meta'");
-
         if (hasCarCols)
             sb.AppendLine("data_file 'CARCOLS_FILE'            'data/**/carcols.meta'");
-
         if (hasCarVariations)
             sb.AppendLine("data_file 'VEHICLE_VARIATION_FILE'  'data/**/carvariations.meta'");
-
-        // vehiclelayouts BEFORE vehicles.meta!
-        if (hasVehicleLayouts)
-            sb.AppendLine("data_file 'VEHICLE_LAYOUTS_FILE'    'data/**/vehiclelayouts.meta'");
-
-        // vehicles.meta ALWAYS last!
         if (hasVehicles)
             sb.AppendLine("data_file 'VEHICLE_METADATA_FILE'   'data/**/vehicles.meta'");
 
-        // client_script for vehicle_names.lua
-        if (options.IncludeVehicleNames)
+        if (resource.IncludeVehicleNames)
         {
             sb.AppendLine();
             sb.AppendLine("client_script 'vehicle_names.lua'");
@@ -182,22 +178,41 @@ public class FiveMExportService
         File.WriteAllText(Path.Combine(outputDir, "fxmanifest.lua"), sb.ToString());
     }
 
-    private void GenerateVehicleNames(ExportOptions options, string outputDir)
+    private void GenerateResourceVehicleNames(Resource resource, string outputDir)
     {
         var sb = new StringBuilder();
         sb.AppendLine("-- Vehicle display names");
 
-        foreach (var vehicle in options.Vehicles)
+        foreach (var v in resource.Vehicles)
         {
-            // Use YFT filename as model name, VehicleEntry.Name as display name
-            var modelName = !string.IsNullOrEmpty(vehicle.YftFilePath)
-                ? Path.GetFileNameWithoutExtension(vehicle.YftFilePath)
-                : SanitizeFolderName(vehicle.Name);
-
-            sb.AppendLine($"AddTextEntry('{EscapeLua(modelName)}', '{EscapeLua(vehicle.Name)}')");
+            var modelName = v.VehicleMeta?.ModelName ?? v.Name;
+            var displayName = v.VehicleMeta?.GameName ?? v.Name;
+            sb.AppendLine($"AddTextEntry('{EscapeLua(modelName)}', '{EscapeLua(displayName)}')");
         }
 
         File.WriteAllText(Path.Combine(outputDir, "vehicle_names.lua"), sb.ToString());
+    }
+
+    /// <summary>
+    /// Exports a single vehicle's meta data to an individual XML file.
+    /// </summary>
+    public void ExportSingleMeta(Vehicle vehicle, string metaType, string filePath, MetaXmlService metaXmlService)
+    {
+        switch (metaType.ToLowerInvariant())
+        {
+            case "handling" when vehicle.Handling != null:
+                metaXmlService.SaveHandling(vehicle.Handling, filePath);
+                break;
+            case "vehicles" when vehicle.VehicleMeta != null:
+                metaXmlService.SaveVehicleMeta(vehicle.VehicleMeta, filePath);
+                break;
+            case "carvariations" when vehicle.CarVariation != null:
+                metaXmlService.SaveCarVariations(vehicle.CarVariation, filePath);
+                break;
+            case "carcols" when vehicle.CarCols != null:
+                metaXmlService.SaveCarCols(vehicle.CarCols, filePath);
+                break;
+        }
     }
 
     private static string SanitizeFolderName(string name)
@@ -214,14 +229,14 @@ public class FiveMExportService
     }
 }
 
-public class ExportOptions
+/// <summary>Export options for the Resource-based export.</summary>
+public class FiveMExportOptions
 {
-    public string ResourceName { get; set; } = "";
-    public string Author { get; set; } = "";
-    public string Version { get; set; } = "1.0.0";
-    public string OutputPath { get; set; } = "";
-    public bool IncludeVehicleNames { get; set; } = true;
-    public List<VehicleEntry> Vehicles { get; set; } = new();
+    public required Resource Resource { get; set; }
+    public required Project Project { get; set; }
+    public required string OutputPath { get; set; }
+    public required MetaXmlService MetaXmlService { get; set; }
+    public required IProjectService ProjectService { get; set; }
 }
 
 public class ExportResult
