@@ -535,16 +535,18 @@ public partial class MainWindowViewModel : ObservableObject
 
         var trimmed = newName.Trim();
         if (string.IsNullOrEmpty(trimmed)) return;
-        if (trimmed == node.DisplayName) return;
 
+        // Compare against model name (not DisplayName, which binding already updated)
         switch (node)
         {
             case ResourceTreeNode rn:
+                if (trimmed == rn.Resource.Name) return;
                 rn.Resource.Name = trimmed;
                 rn.DisplayName = trimmed;
                 Log($"[Rename] Resource → '{trimmed}'");
                 break;
             case VehicleTreeNode vn:
+                if (trimmed == vn.Vehicle.Name) return;
                 vn.Vehicle.Name = trimmed;
                 vn.DisplayName = trimmed;
                 Log($"[Rename] Vehicle → '{trimmed}'");
@@ -567,6 +569,17 @@ public partial class MainWindowViewModel : ObservableObject
     public void CancelRename(TreeNodeViewModel node)
     {
         node.IsEditing = false;
+
+        // Restore DisplayName from model (binding may have changed it)
+        switch (node)
+        {
+            case ResourceTreeNode rn:
+                rn.DisplayName = rn.Resource.Name;
+                break;
+            case VehicleTreeNode vn:
+                vn.DisplayName = vn.Vehicle.Name;
+                break;
+        }
     }
 
     #endregion
