@@ -28,10 +28,8 @@ public partial class MainWindow : Window
 
     private void OnTreeViewSelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
-        if (DataContext is MainWindowViewModel vm && e.NewValue is TreeNodeViewModel node)
-        {
-            vm.SelectedTreeNode = node;
-        }
+        if (DataContext is not MainWindowViewModel vm) return;
+        vm.SelectedTreeNode = e.NewValue as TreeNodeViewModel;
     }
 
     // ── Rename inline editing ──

@@ -38,6 +38,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     // Dirty tracking — subscribed data objects
     private readonly List<INotifyPropertyChanged> _dirtySubscriptions = new();
+    private readonly List<System.Collections.Specialized.INotifyCollectionChanged> _dirtyCollectionSubscriptions = new();
 
     // Flag to suppress selection-change logic during tree rebuild
     private bool _isRebuildingTree;
@@ -211,6 +212,10 @@ public partial class MainWindowViewModel : ObservableObject
         foreach (var obj in _dirtySubscriptions)
             obj.PropertyChanged -= OnDataPropertyChanged;
         _dirtySubscriptions.Clear();
+
+        foreach (var col in _dirtyCollectionSubscriptions)
+            col.CollectionChanged -= OnCollectionChanged;
+        _dirtyCollectionSubscriptions.Clear();
     }
 
     private void SubscribeDirtyTracking(INotifyPropertyChanged? obj)
@@ -220,7 +225,20 @@ public partial class MainWindowViewModel : ObservableObject
         _dirtySubscriptions.Add(obj);
     }
 
+    private void SubscribeDirtyTrackingCollection(System.Collections.Specialized.INotifyCollectionChanged? col)
+    {
+        if (col == null) return;
+        col.CollectionChanged += OnCollectionChanged;
+        _dirtyCollectionSubscriptions.Add(col);
+    }
+
     private void OnDataPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (_currentProject != null)
+            _currentProject.IsDirty = true;
+    }
+
+    private void OnCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
         if (_currentProject != null)
             _currentProject.IsDirty = true;
@@ -294,6 +312,10 @@ public partial class MainWindowViewModel : ObservableObject
         SubscribeDirtyTracking(vehicle.CarCols);
         SubscribeDirtyTracking(vehicle.VehicleMeta);
         SubscribeDirtyTracking(vehicle);
+
+        // Subscribe to collection changes (add/remove sirens, color combinations)
+        SubscribeDirtyTrackingCollection(vehicle.CarCols?.SirenSettings);
+        SubscribeDirtyTrackingCollection(vehicle.CarVariation?.Colors);
 
         // 3D Viewer - load from encrypted project files
         LoadModelForVehicle(vehicle);
@@ -682,8 +704,7 @@ public partial class MainWindowViewModel : ObservableObject
             Log($"[ImportFiles] After import: YFT={vehicle.YftRelativePath ?? "null"}, YTD={vehicle.YtdRelativePath ?? "null"}, YFT_HI={vehicle.YftHiRelativePath ?? "null"}");
             _currentProject.IsDirty = true;
             RebuildTree();
-            SelectVehicleInTree(vehicle);
-            LoadVehicleIntoEditors(vehicle);
+            SelectVehicleInTree(vehicle); // triggers OnSelectedTreeNodeChanged → LoadVehicleIntoEditors
             SaveProject(); // persist immediately
             StatusText = $"Imported {dialog.FileNames.Length} file(s) for {vehicle.Name}";
         }
@@ -730,6 +751,12 @@ public partial class MainWindowViewModel : ObservableObject
             _currentProject.IsDirty = true;
             RebuildTree();
             SaveProject(); // persist immediately
+
+            // Select the first imported vehicle so editors and dirty tracking are initialized
+            var firstImported = resource.Vehicles.LastOrDefault();
+            if (firstImported != null)
+                SelectVehicleInTree(firstImported); // triggers OnSelectedTreeNodeChanged → LoadVehicleIntoEditors
+
             StatusText = $"Imported vehicle(s) from: {Path.GetFileName(dialog.SelectedPath)}";
         }
         catch (Exception ex)
@@ -927,10 +954,10 @@ public partial class MainWindowViewModel : ObservableObject
 
         var handling = preset.Create();
         vehicleNode.Vehicle.Handling = handling;
-        _handlingEditorVm.Handling = handling;
-        _handlingEditorVm.IsLoaded = true;
-        _handlingEditorVm.StatusMessage = $"Applied preset: {presetName}";
         _currentProject!.IsDirty = true;
+
+        // Reload editors + re-subscribe dirty tracking for the new Handling object
+        LoadVehicleIntoEditors(vehicleNode.Vehicle);
 
         // Navigate to handling tab
         SelectedTab = TabItems[1];
