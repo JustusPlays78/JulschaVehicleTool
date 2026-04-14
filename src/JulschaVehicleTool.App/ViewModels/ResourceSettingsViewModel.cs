@@ -88,8 +88,25 @@ public partial class ResourceSettingsViewModel : ObservableObject
             return;
         }
 
+        // Validate all vehicles before export
+        var validationIssues = Resource.Vehicles
+            .SelectMany(v => VehicleValidator.Validate(v)
+                .Select(i => $"[{v.Name}] {i.Severity}: {i.Message}"))
+            .ToList();
+
+        if (validationIssues.Any(m => m.Contains("Error")))
+        {
+            var errors = validationIssues.Where(m => m.Contains("Error")).ToList();
+            StatusMessage = "Export blocked — critical errors:\n" + string.Join("\n", errors);
+            return;
+        }
+
+        if (validationIssues.Count > 0)
+            StatusMessage = $"Warnings ({validationIssues.Count}): {string.Join("; ", validationIssues)}";
+
         IsExporting = true;
-        StatusMessage = "Exporting...";
+        if (validationIssues.Count == 0)
+            StatusMessage = "Exporting...";
 
         try
         {

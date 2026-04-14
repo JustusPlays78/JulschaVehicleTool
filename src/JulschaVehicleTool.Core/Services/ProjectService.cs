@@ -24,6 +24,9 @@ public interface IProjectService
     Project ImportProjectZip(string zipPath, string password, string targetFolderPath,
         IProgress<(int current, int total, string message)>? progress = null);
 
+    void RenameVehicle(Project project, Vehicle vehicle, string oldName, string newName);
+    Vehicle CloneVehicle(Vehicle vehicle);
+
     List<string> LoadRecentProjects();
     void AddToRecentProjects(string folderPath);
 }
@@ -322,6 +325,40 @@ public class ProjectService : IProjectService
             if (Directory.Exists(tempDir))
                 Directory.Delete(tempDir, true);
         }
+    }
+
+    public void RenameVehicle(Project project, Vehicle vehicle, string oldName, string newName)
+    {
+        if (string.IsNullOrEmpty(project.FolderPath) || oldName == newName) return;
+
+        var vehiclesDir = Path.Combine(project.FolderPath, VehiclesFolder);
+        var oldDir = Path.Combine(vehiclesDir, oldName);
+        var newDir = Path.Combine(vehiclesDir, newName);
+
+        if (Directory.Exists(oldDir) && !Directory.Exists(newDir))
+            Directory.Move(oldDir, newDir);
+
+        static string? UpdatePath(string? path, string oldN, string newN)
+        {
+            if (path == null) return null;
+            var sep = path.IndexOfAny(['/', '\\']);
+            if (sep < 0) return path;
+            var first = path[..sep];
+            return string.Equals(first, oldN, StringComparison.OrdinalIgnoreCase)
+                ? newN + path[sep..] : path;
+        }
+
+        vehicle.YftRelativePath   = UpdatePath(vehicle.YftRelativePath,   oldName, newName);
+        vehicle.YftHiRelativePath = UpdatePath(vehicle.YftHiRelativePath, oldName, newName);
+        vehicle.YtdRelativePath   = UpdatePath(vehicle.YtdRelativePath,   oldName, newName);
+        vehicle.YtdHiRelativePath = UpdatePath(vehicle.YtdHiRelativePath, oldName, newName);
+    }
+
+    public Vehicle CloneVehicle(Vehicle vehicle)
+    {
+        var json = JsonSerializer.Serialize(vehicle, ProjectJsonOptions.Default);
+        return JsonSerializer.Deserialize<Vehicle>(json, ProjectJsonOptions.Default)
+            ?? throw new InvalidOperationException("Vehicle clone failed.");
     }
 
     // --- Recent Projects ---

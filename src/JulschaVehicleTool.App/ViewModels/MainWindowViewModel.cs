@@ -4,6 +4,7 @@ using System.IO;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using JulschaVehicleTool.App.Views;
 using JulschaVehicleTool.Core.Constants;
 using JulschaVehicleTool.Core.Models;
 using JulschaVehicleTool.Core.Services;
@@ -81,6 +82,11 @@ public partial class MainWindowViewModel : ObservableObject
 
     [ObservableProperty]
     private string _autoSaveIndicator = "";
+
+    [ObservableProperty]
+    private string _filterText = "";
+
+    partial void OnFilterTextChanged(string value) => ApplyTreeFilter(value);
 
     public ObservableCollection<TreeNodeViewModel> TreeNodes { get; } = new();
     public ObservableCollection<NavigationItem> TabItems { get; } = new();
@@ -569,9 +575,13 @@ public partial class MainWindowViewModel : ObservableObject
                 break;
             case VehicleTreeNode vn:
                 if (trimmed == vn.Vehicle.Name) return;
+                var oldVehicleName = vn.Vehicle.Name;
                 vn.Vehicle.Name = trimmed;
                 vn.DisplayName = trimmed;
-                Log($"[Rename] Vehicle → '{trimmed}'");
+                if (_currentProject != null)
+                    _projectService.RenameVehicle(_currentProject, vn.Vehicle, oldVehicleName, trimmed);
+                _modelCache.Clear();
+                Log($"[Rename] Vehicle '{oldVehicleName}' → '{trimmed}'");
                 break;
             default:
                 return;
@@ -681,6 +691,24 @@ public partial class MainWindowViewModel : ObservableObject
         _currentProject!.IsDirty = true;
         RebuildTree();
         StatusText = $"Removed vehicle: {vehicleNode.Vehicle.Name}";
+    }
+
+    [RelayCommand]
+    private void CloneVehicle()
+    {
+        if (_currentProject == null || SelectedTreeNode is not VehicleTreeNode vehicleNode) return;
+        var resource = FindResourceForVehicle(vehicleNode.Vehicle);
+        if (resource == null) return;
+
+        var clone = _projectService.CloneVehicle(vehicleNode.Vehicle);
+        clone.Name = vehicleNode.Vehicle.Name + "_copy";
+
+        resource.Vehicles.Add(clone);
+        _currentProject.IsDirty = true;
+        RebuildTree();
+        SelectVehicleInTree(clone);
+        SaveProject();
+        StatusText = $"Cloned: {clone.Name}";
     }
 
     [RelayCommand]
@@ -947,21 +975,35 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void ApplyHandlingPreset(string? presetName)
     {
-        if (string.IsNullOrEmpty(presetName) || SelectedTreeNode is not VehicleTreeNode vehicleNode) return;
+        if (string.IsNullOrEmpty(presetName)) return;
 
         var preset = HandlingPresets.All.FirstOrDefault(p => p.Name == presetName);
         if (preset.Create == null) return;
 
-        var handling = preset.Create();
-        vehicleNode.Vehicle.Handling = handling;
+        // Collect checked vehicles; fall back to the currently selected vehicle
+        var targets = GetAllVehicleNodes()
+            .Where(n => n.IsChecked)
+            .Select(n => n.Vehicle)
+            .ToList();
+
+        if (targets.Count == 0)
+        {
+            if (SelectedTreeNode is not VehicleTreeNode vn) return;
+            targets.Add(vn.Vehicle);
+        }
+
+        foreach (var vehicle in targets)
+            vehicle.Handling = preset.Create();
+
         _currentProject!.IsDirty = true;
 
-        // Reload editors + re-subscribe dirty tracking for the new Handling object
-        LoadVehicleIntoEditors(vehicleNode.Vehicle);
+        // Reload current vehicle editors + re-subscribe dirty tracking
+        if (SelectedTreeNode is VehicleTreeNode selected && targets.Contains(selected.Vehicle))
+            LoadVehicleIntoEditors(selected.Vehicle);
 
-        // Navigate to handling tab
         SelectedTab = TabItems[1];
-        StatusText = $"Handling preset applied: {presetName}";
+        SaveProject();
+        StatusText = $"Preset '{presetName}' applied to {targets.Count} vehicle(s)";
     }
 
     #endregion
@@ -981,8 +1023,9 @@ public partial class MainWindowViewModel : ObservableObject
         };
         if (dialog.ShowDialog(Owner) != true) return;
 
-        // TODO: Show PasswordDialog to get password
-        var password = "temp_password";
+        var pwdDlg = new PasswordDialog("Enter a password to protect the ZIP export:", confirm: true) { Owner = Owner };
+        if (pwdDlg.ShowDialog() != true || string.IsNullOrEmpty(pwdDlg.Password)) return;
+        var password = pwdDlg.Password;
 
         try
         {
@@ -1024,8 +1067,9 @@ public partial class MainWindowViewModel : ObservableObject
         };
         if (folderDialog.ShowDialog(Owner) != true) return;
 
-        // TODO: Show PasswordDialog to get password
-        var password = "temp_password";
+        var pwdDlg = new PasswordDialog("Enter the ZIP archive password:") { Owner = Owner };
+        if (pwdDlg.ShowDialog() != true || string.IsNullOrEmpty(pwdDlg.Password)) return;
+        var password = pwdDlg.Password;
 
         try
         {
@@ -1084,6 +1128,8 @@ public partial class MainWindowViewModel : ObservableObject
         {
             _isRebuildingTree = false;
         }
+
+        ApplyTreeFilter(FilterText);
     }
 
     private Resource? FindResourceForVehicle(Vehicle vehicle)
@@ -1107,6 +1153,39 @@ public partial class MainWindowViewModel : ObservableObject
                 }
             }
         }
+    }
+
+    private void ApplyTreeFilter(string searchText)
+    {
+        var q = searchText.Trim().ToLowerInvariant();
+        foreach (var projectNode in TreeNodes)
+        {
+            bool anyResource = false;
+            foreach (var resourceNode in projectNode.Children)
+            {
+                bool anyVehicle = false;
+                foreach (var vehicleNode in resourceNode.Children)
+                {
+                    var v = string.IsNullOrEmpty(q) || vehicleNode.DisplayName.ToLowerInvariant().Contains(q);
+                    vehicleNode.IsVisible = v;
+                    if (v) anyVehicle = true;
+                }
+                var r = string.IsNullOrEmpty(q)
+                    || resourceNode.DisplayName.ToLowerInvariant().Contains(q)
+                    || anyVehicle;
+                resourceNode.IsVisible = r;
+                if (r) anyResource = true;
+            }
+            projectNode.IsVisible = string.IsNullOrEmpty(q) || anyResource;
+        }
+    }
+
+    private IEnumerable<VehicleTreeNode> GetAllVehicleNodes()
+    {
+        foreach (var proj in TreeNodes)
+            foreach (var res in proj.Children)
+                foreach (var veh in res.Children)
+                    if (veh is VehicleTreeNode vn) yield return vn;
     }
 
     #endregion

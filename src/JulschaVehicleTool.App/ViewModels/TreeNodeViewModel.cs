@@ -21,6 +21,12 @@ public partial class TreeNodeViewModel : ObservableObject
     [ObservableProperty]
     private bool _isEditing;
 
+    [ObservableProperty]
+    private bool _isVisible = true;
+
+    [ObservableProperty]
+    private bool _isChecked;
+
     public ObservableCollection<TreeNodeViewModel> Children { get; } = new();
 }
 
@@ -54,11 +60,14 @@ public partial class VehicleTreeNode : TreeNodeViewModel
     {
         Vehicle = vehicle;
         DisplayName = vehicle.Name;
-        HasWarning = vehicle.HasMissingFiles(projectFolderPath);
+        UpdateWarningState(projectFolderPath);
     }
 
     public void UpdateWarningState(string? projectFolderPath)
     {
-        HasWarning = Vehicle.HasMissingFiles(projectFolderPath);
+        HasWarning = Vehicle.HasMissingFiles(projectFolderPath)
+            || Vehicle.VehicleMeta == null
+            || string.IsNullOrEmpty(Vehicle.VehicleMeta.ModelName)
+            || Vehicle.Handling == null;
     }
 }

@@ -73,4 +73,9 @@ public partial class MainWindow : Window
         if (DataContext is MainWindowViewModel vm)
             vm.CommitRename(node, newName);
     }
+
+    private void OnVehicleCheckBoxClick(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true; // Prevent click from bubbling to TreeViewItem selection
+    }
 }
