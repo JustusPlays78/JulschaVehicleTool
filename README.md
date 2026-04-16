@@ -2,8 +2,8 @@
 
 **Desktop editor for GTA V vehicles — organize, edit, and export FiveM vehicle resources.**
 
-[![Build](https://github.com/Schallenkammer/JulschaVehicleTool/actions/workflows/build.yml/badge.svg)](https://github.com/Schallenkammer/JulschaVehicleTool/actions/workflows/build.yml)
-[![Docs](https://github.com/Schallenkammer/JulschaVehicleTool/actions/workflows/docs.yml/badge.svg)](https://schallenkammer.github.io/JulschaVehicleTool)
+[![Build](https://github.com/JustusPlays78/JulschaVehicleTool/actions/workflows/build.yml/badge.svg)](https://github.com/JustusPlays78/JulschaVehicleTool/actions/workflows/build.yml)
+[![Docs](https://github.com/JustusPlays78/JulschaVehicleTool/actions/workflows/docs.yml/badge.svg)](https://justusplays78.github.io/JulschaVehicleTool)
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue)
 ![.NET](https://img.shields.io/badge/.NET-8-purple)
 ![License](https://img.shields.io/badge/license-All%20rights%20reserved-red)
@@ -53,12 +53,12 @@ Project
 
 ## Getting Started
 
-**Download** the latest release from the [Releases page](https://github.com/Schallenkammer/JulschaVehicleTool/releases), extract, and run `JulschaVehicleTool.exe`.
+**Download** the latest release from the [Releases page](https://github.com/JustusPlays78/JulschaVehicleTool/releases), extract, and run `JulschaVehicleTool.exe`.
 
 Or build from source:
 
 ```bash
-git clone https://github.com/Schallenkammer/JulschaVehicleTool.git
+git clone https://github.com/JustusPlays78/JulschaVehicleTool.git
 cd JulschaVehicleTool
 dotnet run --project src/JulschaVehicleTool.App
 ```
@@ -80,13 +80,13 @@ dotnet run --project src/JulschaVehicleTool.App
 
 ## Documentation
 
-Full documentation: **[schallenkammer.github.io/JulschaVehicleTool](https://schallenkammer.github.io/JulschaVehicleTool)**
+Full documentation: **[justusplays78.github.io/JulschaVehicleTool](https://justusplays78.github.io/JulschaVehicleTool)**
 
-- [Installation](https://schallenkammer.github.io/JulschaVehicleTool/getting-started/installation/)
-- [Your First Project](https://schallenkammer.github.io/JulschaVehicleTool/getting-started/quickstart/)
-- [Handling Editor](https://schallenkammer.github.io/JulschaVehicleTool/editors/handling/)
-- [Siren Pool](https://schallenkammer.github.io/JulschaVehicleTool/editors/sirens/)
-- [FiveM Export](https://schallenkammer.github.io/JulschaVehicleTool/export/fivem/)
+- [Installation](https://justusplays78.github.io/JulschaVehicleTool/getting-started/installation/)
+- [Your First Project](https://justusplays78.github.io/JulschaVehicleTool/getting-started/quickstart/)
+- [Handling Editor](https://justusplays78.github.io/JulschaVehicleTool/editors/handling/)
+- [Siren Pool](https://justusplays78.github.io/JulschaVehicleTool/editors/sirens/)
+- [FiveM Export](https://justusplays78.github.io/JulschaVehicleTool/export/fivem/)
 
 ---
 
