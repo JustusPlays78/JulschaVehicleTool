@@ -61,6 +61,12 @@ nav:
   - Export:
     - FiveM Resource Export: export/fivem.md
     - ZIP Sharing: export/zip-sharing.md
+  - Workflows:
+    - Import Existing Vehicle: workflows/existing-vehicle.md
+    - Multi-Vehicle Pack: workflows/multi-vehicle-pack.md
+    - Siren Setup: workflows/sirens.md
+    - Share a Project: workflows/zip-sharing.md
+    - Clone and Variants: workflows/clone-variants.md
   - Reference:
     - Keyboard Shortcuts: reference/shortcuts.md
     - File Formats: reference/file-formats.md
