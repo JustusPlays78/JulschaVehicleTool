@@ -92,6 +92,13 @@ public partial class SirenEditorViewModel : ObservableObject
     private void RemoveSirenSetting()
     {
         if (CarCols == null || SelectedSiren == null) return;
+
+        var result = System.Windows.MessageBox.Show(
+            $"Delete siren setting \"{SelectedSiren.Name}\"?",
+            "Confirm Delete", System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Warning);
+        if (result != System.Windows.MessageBoxResult.Yes) return;
+
         var idx = CarCols.SirenSettings.IndexOf(SelectedSiren);
         CarCols.SirenSettings.Remove(SelectedSiren);
         if (CarCols.SirenSettings.Count > 0)
@@ -163,6 +170,13 @@ public partial class SirenEditorViewModel : ObservableObject
     private void RemoveSirenLight(SirenLight? light)
     {
         if (SelectedSiren == null || light == null) return;
+
+        var result = System.Windows.MessageBox.Show(
+            "Delete this siren light?",
+            "Confirm Delete", System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Warning);
+        if (result != System.Windows.MessageBoxResult.Yes) return;
+
         var idx = SelectedSiren.Sirens.IndexOf(light);
         SelectedSiren.Sirens.Remove(light);
         if (SelectedSiren.Sirens.Count > 0)

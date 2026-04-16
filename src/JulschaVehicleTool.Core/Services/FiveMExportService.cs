@@ -47,8 +47,11 @@ public class FiveMExportService
             GenerateMetaFilesFromInline(vehicle, outputDir, result, usedFolderNames, metaXmlService);
         }
 
+        // Generate a single project-level carcols.meta filtered to IDs referenced by this resource
+        bool hasCarCols = GenerateProjectCarColsFile(project, resource, outputDir, metaXmlService);
+
         progress?.Report((++current, total, "Generating fxmanifest.lua..."));
-        GenerateResourceManifest(resource, outputDir);
+        GenerateResourceManifest(resource, outputDir, hasCarCols);
 
         if (resource.IncludeVehicleNames)
         {
@@ -125,12 +128,37 @@ public class FiveMExportService
 
         if (vehicle.CarVariation != null)
             metaXmlService.SaveCarVariations(vehicle.CarVariation, Path.Combine(vehicleDataDir, "carvariations.meta"));
-
-        if (vehicle.CarCols != null)
-            metaXmlService.SaveCarCols(vehicle.CarCols, Path.Combine(vehicleDataDir, "carcols.meta"));
+        // Note: carcols is exported at resource level (data/carcols.meta), not per-vehicle
     }
 
-    private void GenerateResourceManifest(Resource resource, string outputDir)
+    /// <summary>
+    /// Generates a single data/carcols.meta for the resource, containing only the siren groups
+    /// referenced by vehicles in this resource.  Returns true if the file was written.
+    /// </summary>
+    private static bool GenerateProjectCarColsFile(Project project, Resource resource,
+        string outputDir, MetaXmlService metaXmlService)
+    {
+        if (project.CarCols.SirenSettings.Count == 0) return false;
+
+        // Collect all siren IDs referenced by vehicles in this resource
+        var referencedIds = resource.Vehicles
+            .Select(v => v.CarVariation?.SirenSettings ?? 0)
+            .Where(id => id != 0)
+            .ToHashSet();
+
+        if (referencedIds.Count == 0) return false;
+
+        var filtered = new CarColsData();
+        foreach (var s in project.CarCols.SirenSettings.Where(s => referencedIds.Contains(s.Id)))
+            filtered.SirenSettings.Add(s);
+
+        if (filtered.SirenSettings.Count == 0) return false;
+
+        metaXmlService.SaveCarCols(filtered, Path.Combine(outputDir, "data", "carcols.meta"));
+        return true;
+    }
+
+    private void GenerateResourceManifest(Resource resource, string outputDir, bool hasProjectCarCols = false)
     {
         var sb = new StringBuilder();
         sb.AppendLine("fx_version 'cerulean'");
@@ -150,20 +178,19 @@ public class FiveMExportService
         sb.AppendLine("}");
         sb.AppendLine();
 
-        bool hasHandling = false, hasCarCols = false, hasCarVariations = false, hasVehicles = false;
+        bool hasHandling = false, hasCarVariations = false, hasVehicles = false;
 
         foreach (var v in resource.Vehicles)
         {
             if (v.Handling != null) hasHandling = true;
-            if (v.CarCols != null) hasCarCols = true;
             if (v.CarVariation != null) hasCarVariations = true;
             if (v.VehicleMeta != null) hasVehicles = true;
         }
 
         if (hasHandling)
             sb.AppendLine("data_file 'HANDLING_FILE'           'data/**/handling.meta'");
-        if (hasCarCols)
-            sb.AppendLine("data_file 'CARCOLS_FILE'            'data/**/carcols.meta'");
+        if (hasProjectCarCols)
+            sb.AppendLine("data_file 'CARCOLS_FILE'            'data/carcols.meta'");
         if (hasCarVariations)
             sb.AppendLine("data_file 'VEHICLE_VARIATION_FILE'  'data/**/carvariations.meta'");
         if (hasVehicles)
@@ -209,8 +236,11 @@ public class FiveMExportService
             case "carvariations" when vehicle.CarVariation != null:
                 metaXmlService.SaveCarVariations(vehicle.CarVariation, filePath);
                 break;
-            case "carcols" when vehicle.CarCols != null:
-                metaXmlService.SaveCarCols(vehicle.CarCols, filePath);
+            case "carcols":
+                // carcols is project-level — caller should export via GenerateProjectCarColsFile
+                // kept for direct single-meta export fallback
+                if (vehicle.CarCols != null)
+                    metaXmlService.SaveCarCols(vehicle.CarCols, filePath);
                 break;
         }
     }

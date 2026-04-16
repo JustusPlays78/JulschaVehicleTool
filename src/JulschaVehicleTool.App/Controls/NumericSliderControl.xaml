@@ -7,14 +7,31 @@
             <ColumnDefinition Width="180" />
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="80" />
+            <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
 
+        <!-- Label with min/max range in tooltip -->
         <TextBlock Grid.Column="0"
                    Text="{Binding Label, ElementName=Root}"
                    VerticalAlignment="Center"
                    Foreground="{DynamicResource OnSurfaceVariantBrush}"
-                   FontSize="12"
-                   ToolTip="{Binding Hint, ElementName=Root}" />
+                   FontSize="12">
+            <TextBlock.ToolTip>
+                <ToolTip x:Name="LabelTooltip">
+                    <StackPanel>
+                        <TextBlock x:Name="HintLine" Text="{Binding Hint, ElementName=Root}" FontWeight="Medium" />
+                        <TextBlock x:Name="RangeLine" FontSize="11">
+                            <TextBlock.Text>
+                                <MultiBinding StringFormat="Range: {0} – {1}">
+                                    <Binding Path="Min" ElementName="Root" />
+                                    <Binding Path="Max" ElementName="Root" />
+                                </MultiBinding>
+                            </TextBlock.Text>
+                        </TextBlock>
+                    </StackPanel>
+                </ToolTip>
+            </TextBlock.ToolTip>
+        </TextBlock>
 
         <Slider Grid.Column="1"
                 Minimum="{Binding Min, ElementName=Root}"
@@ -26,10 +43,29 @@
                 Margin="8,0" />
 
         <TextBox Grid.Column="2"
-                 Text="{Binding Value, ElementName=Root, Mode=TwoWay, StringFormat=F4, UpdateSourceTrigger=LostFocus}"
+                 Text="{Binding Value, ElementName=Root, Mode=TwoWay, StringFormat=F4, UpdateSourceTrigger=PropertyChanged}"
                  VerticalAlignment="Center"
                  HorizontalContentAlignment="Right"
                  FontSize="11"
                  Padding="4,2" />
+
+        <!-- Unit label — hidden when empty -->
+        <TextBlock Grid.Column="3"
+                   Text="{Binding Unit, ElementName=Root}"
+                   VerticalAlignment="Center"
+                   Foreground="{DynamicResource OnSurfaceVariantBrush}"
+                   FontSize="10"
+                   Margin="4,0,0,0">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Unit, ElementName=Root}" Value="">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
     </Grid>
 </UserControl>

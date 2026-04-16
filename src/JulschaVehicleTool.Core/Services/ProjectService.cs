@@ -80,7 +80,38 @@ public class ProjectService : IProjectService
 
         project.FolderPath = folderPath;
         project.IsDirty = false;
+
+        // Migrate old per-vehicle CarCols to the project-level pool (one-time, backward compat)
+        MigrateVehicleCarColsToProject(project);
+
         return project;
+    }
+
+    private static void MigrateVehicleCarColsToProject(Project project)
+    {
+        var existingIds = new HashSet<int>(project.CarCols.SirenSettings.Select(s => s.Id));
+        bool migrated = false;
+
+        foreach (var resource in project.Resources)
+        {
+            foreach (var vehicle in resource.Vehicles)
+            {
+                if (vehicle.CarCols == null) continue;
+
+                foreach (var siren in vehicle.CarCols.SirenSettings)
+                {
+                    if (existingIds.Add(siren.Id))
+                        project.CarCols.SirenSettings.Add(siren);
+                }
+
+                vehicle.CarCols = null;
+                migrated = true;
+            }
+        }
+
+        // If migration happened, project needs to be re-saved
+        if (migrated)
+            project.IsDirty = true;
     }
 
     public void Save(Project project)

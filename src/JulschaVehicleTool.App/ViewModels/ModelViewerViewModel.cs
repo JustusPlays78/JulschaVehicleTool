@@ -144,7 +144,7 @@ public partial class ModelViewerViewModel : ObservableObject
         StatusMessage = $"LOD: {lod.Name} - {lod.Meshes.Count} meshes";
     }
 
-    private void LoadTextures(List<TextureInfo> textures)
+    private void LoadTextures(List<JulschaVehicleTool.Core.Models.TextureInfo> textures)
     {
         Textures.Clear();
         foreach (var tex in textures)
@@ -194,7 +194,7 @@ public partial class ModelViewerViewModel : ObservableObject
 
 public class TextureEntry
 {
-    public TextureInfo Info { get; init; } = null!;
+    public JulschaVehicleTool.Core.Models.TextureInfo Info { get; init; } = null!;
     public BitmapSource? Thumbnail { get; init; }
     public string DisplayText => $"{Info.Name}  {Info.Width}×{Info.Height}  {Info.Format}";
 }

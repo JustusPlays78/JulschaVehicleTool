@@ -42,6 +42,7 @@ public partial class App : Application
         services.AddSingleton<HandlingEditorViewModel>();
         services.AddSingleton<CarVariationsViewModel>();
         services.AddSingleton<SirenEditorViewModel>();
+        services.AddSingleton<VehicleSirenAssignViewModel>();
         services.AddSingleton<VehicleMetaViewModel>();
         services.AddSingleton<ResourceSettingsViewModel>();
         services.AddSingleton<WelcomeViewModel>();

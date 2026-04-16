@@ -24,4 +24,10 @@ public partial class Project : ObservableObject
     private bool _isDirty;
 
     public ObservableCollection<Resource> Resources { get; set; } = new();
+
+    /// <summary>
+    /// Project-level siren pool. All siren groups are defined here;
+    /// vehicles reference them by ID via CarVariationData.SirenSettings.
+    /// </summary>
+    public CarColsData CarCols { get; } = new();
 }
