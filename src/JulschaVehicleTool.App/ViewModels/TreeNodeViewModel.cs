@@ -21,6 +21,12 @@ public partial class TreeNodeViewModel : ObservableObject
     [ObservableProperty]
     private bool _isEditing;
 
+    [ObservableProperty]
+    private bool _isVisible = true;
+
+    [ObservableProperty]
+    private bool _isChecked;
+
     public ObservableCollection<TreeNodeViewModel> Children { get; } = new();
 }
 
@@ -39,6 +45,8 @@ public partial class ResourceTreeNode : TreeNodeViewModel
 {
     public Resource Resource { get; }
 
+    public int VehicleCount => Resource.Vehicles.Count;
+
     public ResourceTreeNode(Resource resource)
     {
         Resource = resource;
@@ -50,15 +58,32 @@ public partial class VehicleTreeNode : TreeNodeViewModel
 {
     public Vehicle Vehicle { get; }
 
+    [ObservableProperty]
+    private string _warningMessage = "";
+
     public VehicleTreeNode(Vehicle vehicle, string? projectFolderPath = null)
     {
         Vehicle = vehicle;
         DisplayName = vehicle.Name;
-        HasWarning = vehicle.HasMissingFiles(projectFolderPath);
+        UpdateWarningState(projectFolderPath);
     }
 
     public void UpdateWarningState(string? projectFolderPath)
     {
-        HasWarning = Vehicle.HasMissingFiles(projectFolderPath);
+        var issues = new System.Collections.Generic.List<string>();
+
+        if (Vehicle.HasMissingFiles(projectFolderPath))
+            issues.Add("Missing .yft or .ytd files");
+        if (Vehicle.VehicleMeta == null)
+            issues.Add("No vehicles.meta data");
+        else if (string.IsNullOrEmpty(Vehicle.VehicleMeta.ModelName))
+            issues.Add("Model name is empty");
+        if (Vehicle.Handling == null)
+            issues.Add("No handling.meta data");
+
+        HasWarning = issues.Count > 0;
+        WarningMessage = issues.Count > 0
+            ? "Warnings:\n• " + string.Join("\n• ", issues)
+            : "";
     }
 }

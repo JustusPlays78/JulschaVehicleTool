@@ -24,12 +24,16 @@ public partial class NumericSliderControl : UserControl
     public static readonly DependencyProperty HintProperty =
         DependencyProperty.Register(nameof(Hint), typeof(string), typeof(NumericSliderControl), new PropertyMetadata(""));
 
+    public static readonly DependencyProperty UnitProperty =
+        DependencyProperty.Register(nameof(Unit), typeof(string), typeof(NumericSliderControl), new PropertyMetadata(""));
+
     public string Label { get => (string)GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
     public double Value { get => (double)GetValue(ValueProperty); set => SetValue(ValueProperty, value); }
     public double Min { get => (double)GetValue(MinProperty); set => SetValue(MinProperty, value); }
     public double Max { get => (double)GetValue(MaxProperty); set => SetValue(MaxProperty, value); }
     public double Step { get => (double)GetValue(StepProperty); set => SetValue(StepProperty, value); }
     public string Hint { get => (string)GetValue(HintProperty); set => SetValue(HintProperty, value); }
+    public string Unit { get => (string)GetValue(UnitProperty); set => SetValue(UnitProperty, value); }
 
     public NumericSliderControl()
     {

@@ -1,0 +1,191 @@
+<UserControl x:Class="JulschaVehicleTool.App.Views.VehicleSirenAssignView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:controls="clr-namespace:JulschaVehicleTool.App.Controls"
+             Background="{DynamicResource BackgroundBrush}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" Padding="16,12"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+            <DockPanel>
+                <materialDesign:PackIcon Kind="Lightbulb" Width="20" Height="20"
+                                         Foreground="{DynamicResource AccentBrush}"
+                                         VerticalAlignment="Center" Margin="0,0,8,0" />
+                <StackPanel>
+                    <TextBlock Text="Siren Group Assignment"
+                               FontSize="14" FontWeight="SemiBold"
+                               Foreground="{DynamicResource OnSurfaceBrush}" />
+                    <TextBlock Text="{Binding StatusMessage}"
+                               FontSize="11"
+                               Foreground="{DynamicResource OnSurfaceVariantBrush}"
+                               Margin="0,2,0,0" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Content -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="16,16,16,8">
+
+                <!-- Empty state: no siren groups in the project -->
+                <Border Padding="16" CornerRadius="6"
+                        Background="{DynamicResource SurfaceVariantBrush}"
+                        Visibility="{Binding HasNoSirenGroups, Converter={StaticResource BoolToVis}}">
+                    <StackPanel HorizontalAlignment="Center" TextElement.Foreground="{DynamicResource OnSurfaceVariantBrush}">
+                        <materialDesign:PackIcon Kind="LightbulbOff" Width="32" Height="32"
+                                                  HorizontalAlignment="Center" Margin="0,0,0,8" />
+                        <TextBlock Text="No siren groups defined"
+                                   FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                        <TextBlock Text="Select the project node in the sidebar to manage the shared siren pool."
+                                   FontSize="11" HorizontalAlignment="Center" TextWrapping="Wrap"
+                                   Margin="0,4,0,0" TextAlignment="Center" MaxWidth="300" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Assignment panel — shown when project has siren groups -->
+                <StackPanel>
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Visible" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasNoSirenGroups}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+
+                    <!-- Siren group selector -->
+                    <TextBlock Text="SIREN GROUP" FontSize="11" FontWeight="SemiBold"
+                               Foreground="{DynamicResource OnSurfaceVariantBrush}" Margin="0,0,0,6" />
+
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <ComboBox Grid.Column="0"
+                                  ItemsSource="{Binding ProjectCarCols.SirenSettings}"
+                                  SelectedItem="{Binding SelectedSirenSetting}"
+                                  DisplayMemberPath="Name"
+                                  Background="{DynamicResource SurfaceBrush}"
+                                  Foreground="{DynamicResource OnSurfaceBrush}"
+                                  BorderBrush="{DynamicResource BorderBrush}"
+                                  FontSize="13"
+                                  Padding="8,6">
+                            <ComboBox.ItemContainerStyle>
+                                <Style TargetType="ComboBoxItem">
+                                    <Setter Property="Foreground" Value="{DynamicResource OnSurfaceBrush}" />
+                                    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+                                </Style>
+                            </ComboBox.ItemContainerStyle>
+                        </ComboBox>
+
+                        <Button Grid.Column="1" Margin="6,0,0,0"
+                                Command="{Binding ClearAssignmentCommand}"
+                                ToolTip="Remove siren assignment"
+                                Style="{StaticResource IconButtonStyle}"
+                                Width="32" Height="32">
+                            <materialDesign:PackIcon Kind="Close" Width="14" Height="14" />
+                        </Button>
+                    </Grid>
+
+                    <!-- Sequencer preview — only visible when a siren group is selected -->
+                    <StackPanel>
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedSirenSetting}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+
+                        <TextBlock Text="SEQUENCER PREVIEW" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource OnSurfaceVariantBrush}" Margin="0,0,0,10" />
+
+                        <Border Padding="12" CornerRadius="6"
+                                Background="{DynamicResource SurfaceBrush}"
+                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                            <StackPanel IsEnabled="False">
+                                <controls:SequencerGridControl
+                                    Label="Left Head"
+                                    Value="{Binding SelectedSirenSetting.LeftHeadLightSequencer}"
+                                    Margin="0,0,0,10" />
+                                <controls:SequencerGridControl
+                                    Label="Right Head"
+                                    Value="{Binding SelectedSirenSetting.RightHeadLightSequencer}"
+                                    Margin="0,0,0,10" />
+                                <controls:SequencerGridControl
+                                    Label="Left Tail"
+                                    Value="{Binding SelectedSirenSetting.LeftTailLightSequencer}"
+                                    Margin="0,0,0,10" />
+                                <controls:SequencerGridControl
+                                    Label="Right Tail"
+                                    Value="{Binding SelectedSirenSetting.RightTailLightSequencer}" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Siren light count info -->
+                        <Border Margin="0,8,0,0" Padding="10,6" CornerRadius="4"
+                                Background="{DynamicResource SurfaceVariantBrush}">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="InformationCircle" Width="14" Height="14"
+                                                          VerticalAlignment="Center" Margin="0,0,6,0"
+                                                          Foreground="{DynamicResource OnSurfaceVariantBrush}" />
+                                <TextBlock FontSize="11" Foreground="{DynamicResource OnSurfaceVariantBrush}">
+                                    <Run Text="Siren ID: " />
+                                    <Run Text="{Binding SelectedSirenSetting.Id}" FontFamily="Consolas" />
+                                    <Run Text="  ·  " />
+                                    <Run Text="{Binding SelectedSirenSetting.Sirens.Count, StringFormat='{}{0} light(s)'}" />
+                                    <Run Text="  ·  BPM: " />
+                                    <Run Text="{Binding SelectedSirenSetting.SequencerBpm}" FontFamily="Consolas" />
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Hint when nothing is selected -->
+                    <TextBlock FontSize="11" Foreground="{DynamicResource OnSurfaceVariantBrush}"
+                               Text="No siren group assigned to this vehicle."
+                               Margin="0,4,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedSirenSetting}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Status bar -->
+        <Border Grid.Row="2" Padding="12,6"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
+                Background="{DynamicResource SurfaceVariantBrush}">
+            <TextBlock Text="Select the project node to edit the shared siren pool."
+                       FontSize="11" Foreground="{DynamicResource OnSurfaceVariantBrush}" />
+        </Border>
+    </Grid>
+</UserControl>

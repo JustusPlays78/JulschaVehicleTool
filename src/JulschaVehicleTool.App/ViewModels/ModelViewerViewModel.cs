@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HelixToolkit.SharpDX;
@@ -28,7 +30,13 @@ public partial class ModelViewerViewModel : ObservableObject
     private VehicleModelData? _vehicleModel;
 
     public ObservableCollection<MeshNode> MeshNodes { get; } = new();
+    public ObservableCollection<TextureEntry> Textures { get; } = new();
     public string[] LodLevels { get; } = ["High", "Medium", "Low", "Very Low"];
+
+    [ObservableProperty] private TextureEntry? _selectedTexture;
+
+    public bool HasTextures => Textures.Count > 0;
+    public string TexturePanelHeader => $"Textures ({Textures.Count})";
 
     public ModelViewerViewModel()
     {
@@ -61,6 +69,7 @@ public partial class ModelViewerViewModel : ObservableObject
         IsLoaded = true;
         StatusMessage = "Model loaded from project";
         UpdateDisplayedMeshes();
+        LoadTextures(modelData.Textures);
     }
 
     public void LoadFromPath(string yftPath, string? ytdPath = null)
@@ -87,6 +96,7 @@ public partial class ModelViewerViewModel : ObservableObject
             StatusMessage = $"Loaded: {Path.GetFileName(yftPath)}";
 
             UpdateDisplayedMeshes();
+            LoadTextures(_vehicleModel.Textures);
         }
         catch (Exception ex)
         {
@@ -133,6 +143,60 @@ public partial class ModelViewerViewModel : ObservableObject
 
         StatusMessage = $"LOD: {lod.Name} - {lod.Meshes.Count} meshes";
     }
+
+    private void LoadTextures(List<JulschaVehicleTool.Core.Models.TextureInfo> textures)
+    {
+        Textures.Clear();
+        foreach (var tex in textures)
+        {
+            var thumb = ConvertDdsThumbnail(tex.DdsData);
+            Textures.Add(new TextureEntry { Info = tex, Thumbnail = thumb });
+        }
+        OnPropertyChanged(nameof(HasTextures));
+        OnPropertyChanged(nameof(TexturePanelHeader));
+    }
+
+    private static BitmapSource? ConvertDdsThumbnail(byte[] ddsData)
+    {
+        if (ddsData == null || ddsData.Length == 0) return null;
+        try
+        {
+            using var ms = new MemoryStream(ddsData);
+            var image = Pfim.Pfimage.FromStream(ms);
+
+            var data = image.Data.ToArray();
+            if (image.Format == Pfim.ImageFormat.Rgba32)
+            {
+                for (int i = 0; i < data.Length; i += 4)
+                    (data[i], data[i + 2]) = (data[i + 2], data[i]);
+            }
+
+            var format = image.Format switch
+            {
+                Pfim.ImageFormat.Rgba32 => PixelFormats.Bgra32,
+                Pfim.ImageFormat.Rgb24  => PixelFormats.Bgr24,
+                _                       => PixelFormats.Bgra32
+            };
+
+            var bmp = BitmapSource.Create(image.Width, image.Height, 96, 96,
+                format, null, data, image.Stride);
+            bmp.Freeze();
+
+            double scale = Math.Min(64.0 / image.Width, 64.0 / image.Height);
+            if (scale >= 1.0) return bmp;
+            var tb = new TransformedBitmap(bmp, new ScaleTransform(scale, scale));
+            tb.Freeze();
+            return tb;
+        }
+        catch { return null; }
+    }
+}
+
+public class TextureEntry
+{
+    public JulschaVehicleTool.Core.Models.TextureInfo Info { get; init; } = null!;
+    public BitmapSource? Thumbnail { get; init; }
+    public string DisplayText => $"{Info.Name}  {Info.Width}×{Info.Height}  {Info.Format}";
 }
 
 public partial class MeshNode : ObservableObject

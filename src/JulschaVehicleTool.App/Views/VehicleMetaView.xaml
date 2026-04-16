@@ -2,7 +2,8 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:JulschaVehicleTool.App.Controls"
-             xmlns:conv="clr-namespace:JulschaVehicleTool.App.Converters">
+             xmlns:conv="clr-namespace:JulschaVehicleTool.App.Converters"
+             xmlns:vm="clr-namespace:JulschaVehicleTool.App.ViewModels">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
         <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis" />
@@ -89,56 +90,77 @@
                                 <ColumnDefinition Width="180" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="Type" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
-                            <TextBox Grid.Column="1" Text="{Binding Vehicle.Type, UpdateSourceTrigger=LostFocus}" />
+                            <TextBlock Text="Type" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center"
+                                       ToolTip="Vehicle type (e.g. AUTOMOBILE, BIKE, BOAT)" />
+                            <ComboBox Grid.Column="1" IsEditable="True"
+                                      Text="{Binding Vehicle.Type, UpdateSourceTrigger=PropertyChanged}"
+                                      ItemsSource="{x:Static vm:VehicleMetaOptions.Types}" />
                         </Grid>
                         <Grid Margin="0,2">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="180" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="Vehicle Class" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
-                            <TextBox Grid.Column="1" Text="{Binding Vehicle.VehicleClass, UpdateSourceTrigger=LostFocus}" />
+                            <TextBlock Text="Vehicle Class" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center"
+                                       ToolTip="GTA V vehicle category" />
+                            <ComboBox Grid.Column="1" IsEditable="True"
+                                      Text="{Binding Vehicle.VehicleClass, UpdateSourceTrigger=PropertyChanged}"
+                                      ItemsSource="{x:Static vm:VehicleMetaOptions.VehicleClasses}" />
                         </Grid>
                         <Grid Margin="0,2">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="180" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="Wheel Type" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
-                            <TextBox Grid.Column="1" Text="{Binding Vehicle.WheelType, UpdateSourceTrigger=LostFocus}" />
+                            <TextBlock Text="Wheel Type" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center"
+                                       ToolTip="Default wheel type" />
+                            <ComboBox Grid.Column="1" IsEditable="True"
+                                      Text="{Binding Vehicle.WheelType, UpdateSourceTrigger=PropertyChanged}"
+                                      ItemsSource="{x:Static vm:VehicleMetaOptions.WheelTypes}" />
                         </Grid>
                         <Grid Margin="0,2">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="180" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="Plate Type" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
-                            <TextBox Grid.Column="1" Text="{Binding Vehicle.PlateType, UpdateSourceTrigger=LostFocus}" />
+                            <TextBlock Text="Plate Type" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center"
+                                       ToolTip="License plate configuration" />
+                            <ComboBox Grid.Column="1" IsEditable="True"
+                                      Text="{Binding Vehicle.PlateType, UpdateSourceTrigger=PropertyChanged}"
+                                      ItemsSource="{x:Static vm:VehicleMetaOptions.PlateTypes}" />
                         </Grid>
                         <Grid Margin="0,2">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="180" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="Dashboard Type" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
-                            <TextBox Grid.Column="1" Text="{Binding Vehicle.DashboardType, UpdateSourceTrigger=LostFocus}" />
+                            <TextBlock Text="Dashboard Type" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center"
+                                       ToolTip="Interior dashboard style" />
+                            <ComboBox Grid.Column="1" IsEditable="True"
+                                      Text="{Binding Vehicle.DashboardType, UpdateSourceTrigger=PropertyChanged}"
+                                      ItemsSource="{x:Static vm:VehicleMetaOptions.DashboardTypes}" />
                         </Grid>
                         <Grid Margin="0,2">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="180" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="Layout" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
-                            <TextBox Grid.Column="1" Text="{Binding Vehicle.Layout, UpdateSourceTrigger=LostFocus}" />
+                            <TextBlock Text="Layout" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center"
+                                       ToolTip="Vehicle layout preset" />
+                            <ComboBox Grid.Column="1" IsEditable="True"
+                                      Text="{Binding Vehicle.Layout, UpdateSourceTrigger=PropertyChanged}"
+                                      ItemsSource="{x:Static vm:VehicleMetaOptions.Layouts}" />
                         </Grid>
                         <Grid Margin="0,2">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="180" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="Swankness" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center" />
-                            <TextBox Grid.Column="1" Text="{Binding Vehicle.Swankness, UpdateSourceTrigger=LostFocus}" />
+                            <TextBlock Text="Swankness" Foreground="{DynamicResource OnSurfaceVariantBrush}" VerticalAlignment="Center"
+                                       ToolTip="Prestige level (affects NPC behavior)" />
+                            <ComboBox Grid.Column="1" IsEditable="True"
+                                      Text="{Binding Vehicle.Swankness, UpdateSourceTrigger=PropertyChanged}"
+                                      ItemsSource="{x:Static vm:VehicleMetaOptions.Swanknesses}" />
                         </Grid>
                     </StackPanel>
                 </Expander>

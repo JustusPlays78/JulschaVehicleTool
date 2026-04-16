@@ -4,6 +4,7 @@ using System.IO;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using JulschaVehicleTool.App.Views;
 using JulschaVehicleTool.Core.Constants;
 using JulschaVehicleTool.Core.Models;
 using JulschaVehicleTool.Core.Services;
@@ -26,6 +27,7 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly HandlingEditorViewModel _handlingEditorVm;
     private readonly CarVariationsViewModel _carVariationsVm;
     private readonly SirenEditorViewModel _sirenEditorVm;
+    private readonly VehicleSirenAssignViewModel _vehicleSirenAssignVm;
     private readonly VehicleMetaViewModel _vehicleMetaVm;
     private readonly ResourceSettingsViewModel _resourceSettingsVm;
     private readonly WelcomeViewModel _welcomeVm;
@@ -36,8 +38,12 @@ public partial class MainWindowViewModel : ObservableObject
     // Model cache for 3D viewer
     private readonly Dictionary<string, VehicleModelData> _modelCache = new();
 
-    // Dirty tracking — subscribed data objects
+    // Dirty tracking — subscribed data objects (per-vehicle, cleared on vehicle switch)
     private readonly List<INotifyPropertyChanged> _dirtySubscriptions = new();
+    private readonly List<System.Collections.Specialized.INotifyCollectionChanged> _dirtyCollectionSubscriptions = new();
+
+    // Dirty tracking — project-level (set up on project open, cleared on project close)
+    private readonly List<System.Collections.Specialized.INotifyCollectionChanged> _projectDirtyCollections = new();
 
     // Flag to suppress selection-change logic during tree rebuild
     private bool _isRebuildingTree;
@@ -56,6 +62,31 @@ public partial class MainWindowViewModel : ObservableObject
 
     [ObservableProperty]
     private string _statusText = "Ready";
+
+    [ObservableProperty]
+    private StatusSeverity _statusSeverity = StatusSeverity.Info;
+
+    partial void OnStatusTextChanged(string value)
+    {
+        // Auto-detect severity from message content so all 30+ call sites stay clean
+        StatusSeverity = value switch
+        {
+            var s when s.StartsWith("Error", StringComparison.OrdinalIgnoreCase)
+                    || s.StartsWith("Import error", StringComparison.OrdinalIgnoreCase)
+                    || s.StartsWith("Export error", StringComparison.OrdinalIgnoreCase) => StatusSeverity.Error,
+            var s when s.Contains("saved", StringComparison.OrdinalIgnoreCase)
+                    || s.StartsWith("Created", StringComparison.OrdinalIgnoreCase)
+                    || s.StartsWith("Imported", StringComparison.OrdinalIgnoreCase)
+                    || s.StartsWith("Exported", StringComparison.OrdinalIgnoreCase)
+                    || s.StartsWith("Cloned", StringComparison.OrdinalIgnoreCase)
+                    || s.StartsWith("Preset", StringComparison.OrdinalIgnoreCase)
+                    || s.StartsWith("Renamed", StringComparison.OrdinalIgnoreCase)
+                    || s.StartsWith("Added", StringComparison.OrdinalIgnoreCase) => StatusSeverity.Success,
+            var s when s.StartsWith("Select", StringComparison.OrdinalIgnoreCase)
+                    || s.StartsWith("No ", StringComparison.OrdinalIgnoreCase) => StatusSeverity.Warning,
+            _ => StatusSeverity.Info
+        };
+    }
 
     [ObservableProperty]
     private string _titleSuffix = "";
@@ -81,6 +112,14 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty]
     private string _autoSaveIndicator = "";
 
+    [ObservableProperty]
+    private string _filterText = "";
+
+    partial void OnFilterTextChanged(string value) => ApplyTreeFilter(value);
+
+    [RelayCommand]
+    private void ClearFilter() => FilterText = "";
+
     public ObservableCollection<TreeNodeViewModel> TreeNodes { get; } = new();
     public ObservableCollection<NavigationItem> TabItems { get; } = new();
     public string[] HandlingPresetNames => HandlingPresets.All.Select(p => p.Name).ToArray();
@@ -96,6 +135,7 @@ public partial class MainWindowViewModel : ObservableObject
         HandlingEditorViewModel handlingEditorVm,
         CarVariationsViewModel carVariationsVm,
         SirenEditorViewModel sirenEditorVm,
+        VehicleSirenAssignViewModel vehicleSirenAssignVm,
         VehicleMetaViewModel vehicleMetaVm,
         ResourceSettingsViewModel resourceSettingsVm,
         WelcomeViewModel welcomeVm)
@@ -110,6 +150,7 @@ public partial class MainWindowViewModel : ObservableObject
         _handlingEditorVm = handlingEditorVm;
         _carVariationsVm = carVariationsVm;
         _sirenEditorVm = sirenEditorVm;
+        _vehicleSirenAssignVm = vehicleSirenAssignVm;
         _vehicleMetaVm = vehicleMetaVm;
         _resourceSettingsVm = resourceSettingsVm;
         _welcomeVm = welcomeVm;
@@ -118,7 +159,7 @@ public partial class MainWindowViewModel : ObservableObject
         TabItems.Add(new NavigationItem("3D Viewer", "Monitor", nameof(ModelViewerViewModel)));
         TabItems.Add(new NavigationItem("Handling", "Gauge", nameof(HandlingEditorViewModel)));
         TabItems.Add(new NavigationItem("Variations", "Palette", nameof(CarVariationsViewModel)));
-        TabItems.Add(new NavigationItem("Sirens", "Lightbulb", nameof(SirenEditorViewModel)));
+        TabItems.Add(new NavigationItem("Sirens", "Lightbulb", nameof(VehicleSirenAssignViewModel)));
         TabItems.Add(new NavigationItem("Vehicle", "FileDocument", nameof(VehicleMetaViewModel)));
 
         SelectedTab = TabItems[0];
@@ -177,7 +218,16 @@ public partial class MainWindowViewModel : ObservableObject
 
             case ProjectTreeNode:
                 IsVehicleSelected = false;
-                CurrentViewModel = null; // Could show project overview
+                // Show the project-level siren pool editor
+                if (_currentProject != null)
+                {
+                    _sirenEditorVm.CarCols = _currentProject.CarCols;
+                    _sirenEditorVm.IsLoaded = true;
+                    _sirenEditorVm.StatusMessage = $"Project siren pool — {_currentProject.CarCols.SirenSettings.Count} group(s)";
+                    if (_sirenEditorVm.SelectedSiren == null && _currentProject.CarCols.SirenSettings.Count > 0)
+                        _sirenEditorVm.SelectedSiren = _currentProject.CarCols.SirenSettings[0];
+                }
+                CurrentViewModel = _sirenEditorVm;
                 break;
 
             default:
@@ -196,7 +246,7 @@ public partial class MainWindowViewModel : ObservableObject
             nameof(ModelViewerViewModel) => _modelViewerVm,
             nameof(HandlingEditorViewModel) => _handlingEditorVm,
             nameof(CarVariationsViewModel) => _carVariationsVm,
-            nameof(SirenEditorViewModel) => _sirenEditorVm,
+            nameof(VehicleSirenAssignViewModel) => _vehicleSirenAssignVm,
             nameof(VehicleMetaViewModel) => _vehicleMetaVm,
             _ => null
         };
@@ -211,6 +261,23 @@ public partial class MainWindowViewModel : ObservableObject
         foreach (var obj in _dirtySubscriptions)
             obj.PropertyChanged -= OnDataPropertyChanged;
         _dirtySubscriptions.Clear();
+
+        foreach (var col in _dirtyCollectionSubscriptions)
+            col.CollectionChanged -= OnCollectionChanged;
+        _dirtyCollectionSubscriptions.Clear();
+    }
+
+    private void SubscribeProjectCarColsDirtyTracking(Project project)
+    {
+        _projectDirtyCollections.Add(project.CarCols.SirenSettings);
+        project.CarCols.SirenSettings.CollectionChanged += OnCollectionChanged;
+    }
+
+    private void UnsubscribeProjectCarColsDirtyTracking()
+    {
+        foreach (var col in _projectDirtyCollections)
+            col.CollectionChanged -= OnCollectionChanged;
+        _projectDirtyCollections.Clear();
     }
 
     private void SubscribeDirtyTracking(INotifyPropertyChanged? obj)
@@ -220,7 +287,20 @@ public partial class MainWindowViewModel : ObservableObject
         _dirtySubscriptions.Add(obj);
     }
 
+    private void SubscribeDirtyTrackingCollection(System.Collections.Specialized.INotifyCollectionChanged? col)
+    {
+        if (col == null) return;
+        col.CollectionChanged += OnCollectionChanged;
+        _dirtyCollectionSubscriptions.Add(col);
+    }
+
     private void OnDataPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (_currentProject != null)
+            _currentProject.IsDirty = true;
+    }
+
+    private void OnCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
         if (_currentProject != null)
             _currentProject.IsDirty = true;
@@ -257,22 +337,9 @@ public partial class MainWindowViewModel : ObservableObject
             _carVariationsVm.StatusMessage = "No car variation data";
         }
 
-        // Sirens / CarCols
-        if (vehicle.CarCols != null)
-        {
-            _sirenEditorVm.CarCols = vehicle.CarCols;
-            _sirenEditorVm.IsLoaded = true;
-            if (vehicle.CarCols.SirenSettings.Count > 0)
-                _sirenEditorVm.SelectedSiren = vehicle.CarCols.SirenSettings[0];
-            _sirenEditorVm.StatusMessage = $"Editing: {vehicle.Name}";
-        }
-        else
-        {
-            _sirenEditorVm.CarCols = null;
-            _sirenEditorVm.SelectedSiren = null;
-            _sirenEditorVm.IsLoaded = false;
-            _sirenEditorVm.StatusMessage = "No carcols data";
-        }
+        // Sirens — vehicle siren assignment (references project-level pool by ID)
+        _vehicleSirenAssignVm.ProjectCarCols = _currentProject?.CarCols;
+        _vehicleSirenAssignVm.Vehicle = vehicle;
 
         // Vehicle Meta
         if (vehicle.VehicleMeta != null)
@@ -291,9 +358,11 @@ public partial class MainWindowViewModel : ObservableObject
         // Subscribe to property changes for dirty tracking
         SubscribeDirtyTracking(vehicle.Handling);
         SubscribeDirtyTracking(vehicle.CarVariation);
-        SubscribeDirtyTracking(vehicle.CarCols);
         SubscribeDirtyTracking(vehicle.VehicleMeta);
         SubscribeDirtyTracking(vehicle);
+
+        // Subscribe to collection changes (add/remove color combinations)
+        SubscribeDirtyTrackingCollection(vehicle.CarVariation?.Colors);
 
         // 3D Viewer - load from encrypted project files
         LoadModelForVehicle(vehicle);
@@ -377,6 +446,10 @@ public partial class MainWindowViewModel : ObservableObject
         IsProjectOpen = true;
         TitleSuffix = $" - {_currentProject!.Name}";
         _modelCache.Clear();
+
+        // Set up project-level dirty tracking for the siren pool
+        SubscribeProjectCarColsDirtyTracking(_currentProject);
+
         RebuildTree();
         _autoSaveTimer.Start();
 
@@ -430,9 +503,10 @@ public partial class MainWindowViewModel : ObservableObject
             Log($"[Save]   Resource '{res.Name}': {res.Vehicles.Count} vehicle(s)");
             foreach (var v in res.Vehicles)
             {
-                Log($"[Save]     Vehicle '{v.Name}': YFT={v.YftRelativePath ?? "null"}, Handling={v.Handling?.HandlingName ?? "null"}, Meta={v.VehicleMeta?.GameName ?? "null"}, CarVar={v.CarVariation?.ModelName ?? "null"}, CarCols={(v.CarCols != null ? "yes" : "null")}");
+                Log($"[Save]     Vehicle '{v.Name}': YFT={v.YftRelativePath ?? "null"}, Handling={v.Handling?.HandlingName ?? "null"}, Meta={v.VehicleMeta?.GameName ?? "null"}, CarVar={v.CarVariation?.ModelName ?? "null"}, SirenId={v.CarVariation?.SirenSettings}");
             }
         }
+        Log($"[Save] Project siren pool: {_currentProject.CarCols.SirenSettings.Count} group(s)");
 
         try
         {
@@ -482,6 +556,7 @@ public partial class MainWindowViewModel : ObservableObject
             SaveProject();
 
         UnsubscribeDirtyTracking();
+        UnsubscribeProjectCarColsDirtyTracking();
         _currentProject = null;
         _autoSaveTimer.Stop();
         IsProjectOpen = false;
@@ -547,9 +622,13 @@ public partial class MainWindowViewModel : ObservableObject
                 break;
             case VehicleTreeNode vn:
                 if (trimmed == vn.Vehicle.Name) return;
+                var oldVehicleName = vn.Vehicle.Name;
                 vn.Vehicle.Name = trimmed;
                 vn.DisplayName = trimmed;
-                Log($"[Rename] Vehicle → '{trimmed}'");
+                if (_currentProject != null)
+                    _projectService.RenameVehicle(_currentProject, vn.Vehicle, oldVehicleName, trimmed);
+                _modelCache.Clear();
+                Log($"[Rename] Vehicle '{oldVehicleName}' → '{trimmed}'");
                 break;
             default:
                 return;
@@ -610,6 +689,12 @@ public partial class MainWindowViewModel : ObservableObject
     {
         if (_currentProject == null || SelectedTreeNode is not ResourceTreeNode resourceNode) return;
 
+        var result = System.Windows.MessageBox.Show(
+            $"Delete resource \"{resourceNode.Resource.Name}\" and all its vehicles?",
+            "Confirm Delete", System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Warning);
+        if (result != System.Windows.MessageBoxResult.Yes) return;
+
         _currentProject.Resources.Remove(resourceNode.Resource);
         _currentProject.IsDirty = true;
         RebuildTree();
@@ -652,6 +737,12 @@ public partial class MainWindowViewModel : ObservableObject
     {
         if (SelectedTreeNode is not VehicleTreeNode vehicleNode) return;
 
+        var result = System.Windows.MessageBox.Show(
+            $"Delete vehicle \"{vehicleNode.Vehicle.Name}\"?",
+            "Confirm Delete", System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Warning);
+        if (result != System.Windows.MessageBoxResult.Yes) return;
+
         var resource = FindResourceForVehicle(vehicleNode.Vehicle);
         if (resource == null) return;
 
@@ -659,6 +750,24 @@ public partial class MainWindowViewModel : ObservableObject
         _currentProject!.IsDirty = true;
         RebuildTree();
         StatusText = $"Removed vehicle: {vehicleNode.Vehicle.Name}";
+    }
+
+    [RelayCommand]
+    private void CloneVehicle()
+    {
+        if (_currentProject == null || SelectedTreeNode is not VehicleTreeNode vehicleNode) return;
+        var resource = FindResourceForVehicle(vehicleNode.Vehicle);
+        if (resource == null) return;
+
+        var clone = _projectService.CloneVehicle(vehicleNode.Vehicle);
+        clone.Name = GenerateUniqueName(vehicleNode.Vehicle.Name, resource);
+
+        resource.Vehicles.Add(clone);
+        _currentProject.IsDirty = true;
+        RebuildTree();
+        SelectVehicleInTree(clone);
+        SaveProject();
+        StatusText = $"Cloned: {clone.Name}";
     }
 
     [RelayCommand]
@@ -682,8 +791,7 @@ public partial class MainWindowViewModel : ObservableObject
             Log($"[ImportFiles] After import: YFT={vehicle.YftRelativePath ?? "null"}, YTD={vehicle.YtdRelativePath ?? "null"}, YFT_HI={vehicle.YftHiRelativePath ?? "null"}");
             _currentProject.IsDirty = true;
             RebuildTree();
-            SelectVehicleInTree(vehicle);
-            LoadVehicleIntoEditors(vehicle);
+            SelectVehicleInTree(vehicle); // triggers OnSelectedTreeNodeChanged → LoadVehicleIntoEditors
             SaveProject(); // persist immediately
             StatusText = $"Imported {dialog.FileNames.Length} file(s) for {vehicle.Name}";
         }
@@ -730,6 +838,12 @@ public partial class MainWindowViewModel : ObservableObject
             _currentProject.IsDirty = true;
             RebuildTree();
             SaveProject(); // persist immediately
+
+            // Select the first imported vehicle so editors and dirty tracking are initialized
+            var firstImported = resource.Vehicles.LastOrDefault();
+            if (firstImported != null)
+                SelectVehicleInTree(firstImported); // triggers OnSelectedTreeNodeChanged → LoadVehicleIntoEditors
+
             StatusText = $"Imported vehicle(s) from: {Path.GetFileName(dialog.SelectedPath)}";
         }
         catch (Exception ex)
@@ -799,19 +913,22 @@ public partial class MainWindowViewModel : ObservableObject
                         (v, d) => v.CarVariation = d, "CarVariation");
                 else if (fileName.Contains("carcols"))
                 {
-                    // CarCols has no multi-vehicle LoadAll — use single import
+                    // CarCols is project-level — merge imported siren groups into the project pool
                     var data = _metaXmlService.LoadCarCols(file);
-                    if (singleVehicle != null)
+                    if (data != null && _currentProject != null)
                     {
-                        singleVehicle.CarCols = data;
-                        Log($"  [CarCols] Assigned to {singleVehicle.Name}");
-                        applied++;
-                    }
-                    else if (allVehicles.Count > 0)
-                    {
-                        allVehicles[0].CarCols = data;
-                        Log($"  [CarCols] Assigned to first vehicle: {allVehicles[0].Name}");
-                        applied++;
+                        var existingIds = new HashSet<int>(_currentProject.CarCols.SirenSettings.Select(s => s.Id));
+                        int merged = 0;
+                        foreach (var siren in data.SirenSettings)
+                        {
+                            if (existingIds.Add(siren.Id))
+                            {
+                                _currentProject.CarCols.SirenSettings.Add(siren);
+                                merged++;
+                            }
+                        }
+                        Log($"  [CarCols] Merged {merged} siren group(s) into project pool (skipped {data.SirenSettings.Count - merged} duplicates)");
+                        applied += merged;
                     }
                 }
                 else
@@ -827,7 +944,7 @@ public partial class MainWindowViewModel : ObservableObject
             }
         }
 
-        _currentProject.IsDirty = true;
+        _currentProject!.IsDirty = true;
         if (singleVehicle != null)
             LoadVehicleIntoEditors(singleVehicle);
         SaveProject();
@@ -920,21 +1037,35 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void ApplyHandlingPreset(string? presetName)
     {
-        if (string.IsNullOrEmpty(presetName) || SelectedTreeNode is not VehicleTreeNode vehicleNode) return;
+        if (string.IsNullOrEmpty(presetName)) return;
 
         var preset = HandlingPresets.All.FirstOrDefault(p => p.Name == presetName);
         if (preset.Create == null) return;
 
-        var handling = preset.Create();
-        vehicleNode.Vehicle.Handling = handling;
-        _handlingEditorVm.Handling = handling;
-        _handlingEditorVm.IsLoaded = true;
-        _handlingEditorVm.StatusMessage = $"Applied preset: {presetName}";
+        // Collect checked vehicles; fall back to the currently selected vehicle
+        var targets = GetAllVehicleNodes()
+            .Where(n => n.IsChecked)
+            .Select(n => n.Vehicle)
+            .ToList();
+
+        if (targets.Count == 0)
+        {
+            if (SelectedTreeNode is not VehicleTreeNode vn) return;
+            targets.Add(vn.Vehicle);
+        }
+
+        foreach (var vehicle in targets)
+            vehicle.Handling = preset.Create();
+
         _currentProject!.IsDirty = true;
 
-        // Navigate to handling tab
+        // Reload current vehicle editors + re-subscribe dirty tracking
+        if (SelectedTreeNode is VehicleTreeNode selected && targets.Contains(selected.Vehicle))
+            LoadVehicleIntoEditors(selected.Vehicle);
+
         SelectedTab = TabItems[1];
-        StatusText = $"Handling preset applied: {presetName}";
+        SaveProject();
+        StatusText = $"Preset '{presetName}' applied to {targets.Count} vehicle(s)";
     }
 
     #endregion
@@ -954,8 +1085,9 @@ public partial class MainWindowViewModel : ObservableObject
         };
         if (dialog.ShowDialog(Owner) != true) return;
 
-        // TODO: Show PasswordDialog to get password
-        var password = "temp_password";
+        var pwdDlg = new PasswordDialog("Enter a password to protect the ZIP export:", confirm: true) { Owner = Owner };
+        if (pwdDlg.ShowDialog() != true || string.IsNullOrEmpty(pwdDlg.Password)) return;
+        var password = pwdDlg.Password;
 
         try
         {
@@ -997,8 +1129,9 @@ public partial class MainWindowViewModel : ObservableObject
         };
         if (folderDialog.ShowDialog(Owner) != true) return;
 
-        // TODO: Show PasswordDialog to get password
-        var password = "temp_password";
+        var pwdDlg = new PasswordDialog("Enter the ZIP archive password:") { Owner = Owner };
+        if (pwdDlg.ShowDialog() != true || string.IsNullOrEmpty(pwdDlg.Password)) return;
+        var password = pwdDlg.Password;
 
         try
         {
@@ -1057,6 +1190,8 @@ public partial class MainWindowViewModel : ObservableObject
         {
             _isRebuildingTree = false;
         }
+
+        ApplyTreeFilter(FilterText);
     }
 
     private Resource? FindResourceForVehicle(Vehicle vehicle)
@@ -1080,6 +1215,53 @@ public partial class MainWindowViewModel : ObservableObject
                 }
             }
         }
+    }
+
+    private void ApplyTreeFilter(string searchText)
+    {
+        var q = searchText.Trim().ToLowerInvariant();
+        foreach (var projectNode in TreeNodes)
+        {
+            bool anyResource = false;
+            foreach (var resourceNode in projectNode.Children)
+            {
+                bool anyVehicle = false;
+                foreach (var vehicleNode in resourceNode.Children)
+                {
+                    var v = string.IsNullOrEmpty(q) || vehicleNode.DisplayName.ToLowerInvariant().Contains(q);
+                    vehicleNode.IsVisible = v;
+                    if (v) anyVehicle = true;
+                }
+                var r = string.IsNullOrEmpty(q)
+                    || resourceNode.DisplayName.ToLowerInvariant().Contains(q)
+                    || anyVehicle;
+                resourceNode.IsVisible = r;
+                if (r) anyResource = true;
+            }
+            projectNode.IsVisible = string.IsNullOrEmpty(q) || anyResource;
+        }
+    }
+
+    private IEnumerable<VehicleTreeNode> GetAllVehicleNodes()
+    {
+        foreach (var proj in TreeNodes)
+            foreach (var res in proj.Children)
+                foreach (var veh in res.Children)
+                    if (veh is VehicleTreeNode vn) yield return vn;
+    }
+
+    /// <summary>
+    /// Returns a unique vehicle name within the given resource.
+    /// Tries: baseName_copy, baseName_copy_2, baseName_copy_3, ...
+    /// </summary>
+    private static string GenerateUniqueName(string baseName, Resource resource)
+    {
+        var existing = new HashSet<string>(resource.Vehicles.Select(v => v.Name), StringComparer.OrdinalIgnoreCase);
+        var candidate = baseName + "_copy";
+        if (!existing.Contains(candidate)) return candidate;
+        int n = 2;
+        while (existing.Contains(baseName + "_copy_" + n)) n++;
+        return baseName + "_copy_" + n;
     }
 
     #endregion

@@ -24,6 +24,9 @@
         <DataTemplate DataType="{x:Type vm:SirenEditorViewModel}">
             <views:SirenEditorView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:VehicleSirenAssignViewModel}">
+            <views:VehicleSirenAssignView />
+        </DataTemplate>
         <DataTemplate DataType="{x:Type vm:VehicleMetaViewModel}">
             <views:VehicleMetaView />
         </DataTemplate>
@@ -111,6 +114,12 @@
                     <MenuItem Header="Helicopter" Command="{Binding ApplyHandlingPresetCommand}" CommandParameter="Helicopter" />
                 </MenuItem>
                 <MenuItem Header="_Help">
+                    <MenuItem Header="_Keyboard Shortcuts" Click="OnKeyboardShortcutsClick">
+                        <MenuItem.Icon>
+                            <materialDesign:PackIcon Kind="Keyboard" Width="16" Height="16" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator />
                     <MenuItem Header="_About" Click="OnAboutClick">
                         <MenuItem.Icon>
                             <materialDesign:PackIcon Kind="InformationCircle" Width="16" Height="16" />
@@ -137,6 +146,7 @@
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
@@ -161,8 +171,43 @@
                         </StackPanel>
                     </DockPanel>
 
+                    <!-- Search Box with clear button -->
+                    <Border Grid.Row="1" Margin="8,0,8,4" CornerRadius="4"
+                            Background="{DynamicResource HoverBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                        <Grid>
+                            <materialDesign:PackIcon Kind="Magnify" Width="14" Height="14"
+                                                     Margin="8,0,0,0" VerticalAlignment="Center"
+                                                     HorizontalAlignment="Left"
+                                                     Foreground="{DynamicResource OnSurfaceVariantBrush}" />
+                            <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                                     Padding="28,5,28,5" Background="Transparent" BorderThickness="0"
+                                     FontSize="12" Foreground="{DynamicResource OnSurfaceBrush}"
+                                     materialDesign:HintAssist.Hint="Filter vehicles..."
+                                     materialDesign:HintAssist.Foreground="{DynamicResource OnSurfaceVariantBrush}" />
+                            <!-- Clear filter button — only visible when text is present -->
+                            <Button HorizontalAlignment="Right" VerticalAlignment="Center"
+                                    Margin="0,0,2,0"
+                                    Width="20" Height="20"
+                                    Command="{Binding ClearFilterCommand}"
+                                    ToolTip="Filter löschen">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
+                                        <!-- Default: Visible. Collapse when filter is empty. -->
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding FilterText}" Value="">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <materialDesign:PackIcon Kind="Close" Width="10" Height="10" />
+                            </Button>
+                        </Grid>
+                    </Border>
+
                     <!-- TreeView -->
-                    <TreeView Grid.Row="1"
+                    <TreeView Grid.Row="2"
                               ItemsSource="{Binding TreeNodes}"
                               Background="Transparent"
                               BorderThickness="0"
@@ -219,11 +264,17 @@
                                     <materialDesign:PackIcon Kind="PackageVariant" Width="15" Height="15"
                                                              Foreground="{DynamicResource SecondaryBrush}"
                                                              VerticalAlignment="Center" Margin="0,0,8,0" />
-                                    <TextBlock Text="{Binding DisplayName}"
-                                               FontSize="12"
+                                    <TextBlock FontSize="12"
                                                Foreground="{DynamicResource OnSurfaceBrush}"
                                                VerticalAlignment="Center"
-                                               Visibility="{Binding IsEditing, Converter={StaticResource InvertBoolToVisConverter}}" />
+                                               Visibility="{Binding IsEditing, Converter={StaticResource InvertBoolToVisConverter}}">
+                                        <TextBlock.Text>
+                                            <MultiBinding StringFormat="{}{0} ({1})">
+                                                <Binding Path="DisplayName" />
+                                                <Binding Path="VehicleCount" />
+                                            </MultiBinding>
+                                        </TextBlock.Text>
+                                    </TextBlock>
                                     <TextBox Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}"
                                              FontSize="12"
                                              MinWidth="80"
@@ -249,6 +300,13 @@
                                                               Command="{Binding DataContext.ImportVehicleFilesCommand, Source={x:Reference MainGrid}}" />
                                                     <MenuItem Header="Import Meta File..."
                                                               Command="{Binding DataContext.ImportMetaFileCommand, Source={x:Reference MainGrid}}" />
+                                                    <Separator />
+                                                    <MenuItem Header="Clone Vehicle"
+                                                              Command="{Binding DataContext.CloneVehicleCommand, Source={x:Reference MainGrid}}">
+                                                        <MenuItem.Icon>
+                                                            <materialDesign:PackIcon Kind="ContentCopy" Width="16" Height="16" />
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
                                                     <Separator />
                                                     <MenuItem Header="Delete Vehicle"
                                                               Command="{Binding DataContext.RemoveVehicleCommand, Source={x:Reference MainGrid}}">
@@ -279,9 +337,13 @@
                             <!-- Vehicle Node -->
                             <DataTemplate DataType="{x:Type vm:VehicleTreeNode}">
                                 <StackPanel Orientation="Horizontal">
+                                    <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}"
+                                              VerticalAlignment="Center" Margin="0,0,4,0"
+                                              Click="OnVehicleCheckBoxClick" />
                                     <materialDesign:PackIcon Kind="AlertCircleOutline" Width="14" Height="14"
                                                              Foreground="{DynamicResource WarningBrush}"
                                                              VerticalAlignment="Center" Margin="0,0,4,0"
+                                                             ToolTip="{Binding WarningMessage}"
                                                              Visibility="{Binding HasWarning, Converter={StaticResource BoolToVis}}" />
                                     <materialDesign:PackIcon Kind="CarSide" Width="14" Height="14"
                                                              Foreground="{DynamicResource OnSurfaceVariantBrush}"
@@ -305,7 +367,7 @@
                     </TreeView>
 
                     <!-- Sidebar Footer -->
-                    <StackPanel Grid.Row="2" Margin="8,4,8,8">
+                    <StackPanel Grid.Row="3" Margin="8,4,8,8">
                         <Button Content="Import Files..."
                                 Command="{Binding ImportVehicleFilesCommand}"
                                 Style="{StaticResource SidebarButtonStyle}"
@@ -390,7 +452,8 @@
 
                 <!-- Progress Overlay -->
                 <Border Grid.Row="0" Grid.RowSpan="2"
-                        Background="#DD121216"
+                        Background="{DynamicResource BackgroundBrush}"
+                        Opacity="0.92"
                         Visibility="{Binding IsProgressVisible, Converter={StaticResource BoolToVis}}">
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Width="320">
                         <materialDesign:PackIcon Kind="CloudUpload" Width="32" Height="32"
@@ -414,11 +477,52 @@
         <!-- ═══════════ Status Bar ═══════════ -->
         <StatusBar Grid.Row="2" Style="{DynamicResource StatusBarStyle}">
             <StatusBarItem>
-                <StackPanel Orientation="Horizontal">
-                    <materialDesign:PackIcon Kind="InformationCircle" Width="14" Height="14"
+                <StackPanel Orientation="Horizontal" x:Name="StatusPanel">
+                    <!-- Severity icon — swaps Kind+Foreground based on StatusSeverity -->
+                    <materialDesign:PackIcon x:Name="StatusIcon"
+                                             Width="14" Height="14"
                                              VerticalAlignment="Center" Margin="0,0,6,0"
-                                             Foreground="{DynamicResource OnSurfaceVariantBrush}" />
-                    <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" />
+                                             Kind="InformationCircle"
+                                             Foreground="{DynamicResource OnSurfaceVariantBrush}">
+                        <materialDesign:PackIcon.Style>
+                            <Style TargetType="materialDesign:PackIcon">
+                                <Setter Property="Kind" Value="InformationCircle" />
+                                <Setter Property="Foreground" Value="{DynamicResource OnSurfaceVariantBrush}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding StatusSeverity}" Value="Success">
+                                        <Setter Property="Kind" Value="CheckCircle" />
+                                        <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding StatusSeverity}" Value="Warning">
+                                        <Setter Property="Kind" Value="AlertCircle" />
+                                        <Setter Property="Foreground" Value="{DynamicResource WarningBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding StatusSeverity}" Value="Error">
+                                        <Setter Property="Kind" Value="AlertOctagon" />
+                                        <Setter Property="Foreground" Value="{DynamicResource ErrorBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </materialDesign:PackIcon.Style>
+                    </materialDesign:PackIcon>
+                    <TextBlock x:Name="StatusTextBlock" Text="{Binding StatusText}" VerticalAlignment="Center">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="{DynamicResource OnSurfaceVariantBrush}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding StatusSeverity}" Value="Success">
+                                        <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding StatusSeverity}" Value="Warning">
+                                        <Setter Property="Foreground" Value="{DynamicResource WarningBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding StatusSeverity}" Value="Error">
+                                        <Setter Property="Foreground" Value="{DynamicResource ErrorBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </StackPanel>
             </StatusBarItem>
             <Separator />

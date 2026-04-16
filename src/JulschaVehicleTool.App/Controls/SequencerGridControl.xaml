@@ -15,10 +15,31 @@
                      VerticalContentAlignment="Center" Height="24"
                      FontFamily="Consolas" FontSize="11" />
         </DockPanel>
-        <UniformGrid x:Name="BitGrid" Rows="1" Columns="32" Height="22"
+        <!-- Bit grid: 32 cells, height 26px for easier click targets -->
+        <UniformGrid x:Name="BitGrid" Rows="1" Columns="32" Height="26"
                      MouseLeftButtonDown="BitGrid_MouseDown"
                      MouseMove="BitGrid_MouseMove"
                      MouseLeftButtonUp="BitGrid_MouseUp"
-                     Background="Transparent" />
+                     Background="{DynamicResource SurfaceVariantBrush}" />
+        <!-- Bit-position markers every 8 bits (labels at left edge of each 8-cell group) -->
+        <Grid Margin="0,2,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="31" FontSize="9" FontFamily="Consolas"
+                       Foreground="{DynamicResource OnSurfaceVariantBrush}" HorizontalAlignment="Left" />
+            <TextBlock Grid.Column="1" Text="23" FontSize="9" FontFamily="Consolas"
+                       Foreground="{DynamicResource OnSurfaceVariantBrush}" HorizontalAlignment="Left" />
+            <TextBlock Grid.Column="2" Text="15" FontSize="9" FontFamily="Consolas"
+                       Foreground="{DynamicResource OnSurfaceVariantBrush}" HorizontalAlignment="Left" />
+            <TextBlock Grid.Column="3" Text="7" FontSize="9" FontFamily="Consolas"
+                       Foreground="{DynamicResource OnSurfaceVariantBrush}" HorizontalAlignment="Left" />
+            <TextBlock Grid.Column="4" Text="0" FontSize="9" FontFamily="Consolas"
+                       Foreground="{DynamicResource OnSurfaceVariantBrush}" HorizontalAlignment="Right" />
+        </Grid>
     </StackPanel>
 </UserControl>

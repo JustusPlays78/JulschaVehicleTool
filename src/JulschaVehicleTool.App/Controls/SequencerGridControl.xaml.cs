@@ -36,27 +36,45 @@ public partial class SequencerGridControl : UserControl
     private void BuildGrid()
     {
         BitGrid.Children.Clear();
+        var borderBrush = Application.Current.TryFindResource("BorderBrush") as Brush ?? Brushes.Gray;
+
         for (int i = 31; i >= 0; i--)
         {
-            var rect = new Border
+            var cell = new Border
             {
                 Background = Brushes.Transparent,
-                BorderBrush = Application.Current.TryFindResource("BorderBrush") as Brush ?? Brushes.Gray,
+                BorderBrush = borderBrush,
                 BorderThickness = new Thickness(0.5),
                 Tag = i,
                 Cursor = Cursors.Hand,
                 SnapsToDevicePixels = true,
+                ToolTip = $"Bit {i}",
             };
-            BitGrid.Children.Add(rect);
+            // Hover state
+            cell.MouseEnter += (_, _) => OnCellHover(cell, enter: true);
+            cell.MouseLeave += (_, _) => OnCellHover(cell, enter: false);
+            BitGrid.Children.Add(cell);
         }
         UpdateGrid();
+    }
+
+    private void OnCellHover(Border cell, bool enter)
+    {
+        int bit = (int)cell.Tag;
+        bool isSet = (Value & (1u << bit)) != 0;
+        if (isSet) return; // active cells keep their accent color
+
+        cell.Background = enter
+            ? (Application.Current.TryFindResource("HoverBrush") as Brush ?? Brushes.DimGray)
+            : (Application.Current.TryFindResource("SurfaceVariantBrush") as Brush ?? Brushes.DimGray);
     }
 
     private void UpdateGrid()
     {
         var val = Value;
-        var activeBrush = ActiveColor;
-        var inactiveBrush = Application.Current.TryFindResource("SurfaceBrush") as Brush ?? Brushes.Black;
+        var activeBrush = Application.Current.TryFindResource("AccentBrush") as Brush
+                          ?? new SolidColorBrush(Color.FromRgb(0x64, 0xB5, 0xF6));
+        var inactiveBrush = Application.Current.TryFindResource("SurfaceVariantBrush") as Brush ?? Brushes.DimGray;
 
         foreach (Border child in BitGrid.Children)
         {
