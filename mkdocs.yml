@@ -1,0 +1,68 @@
+site_name: Julscha Vehicle Tool
+site_description: GTA V / FiveM Vehicle Resource Editor for Windows
+site_author: Julscha
+docs_dir: docs
+repo_url: https://github.com/Schallenkammer/JulschaVehicleTool
+repo_name: JulschaVehicleTool
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    scheme: slate
+    primary: blue-grey
+    accent: light-blue
+  font:
+    text: Inter
+    code: JetBrains Mono
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - toc.integrate
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+    - content.action.edit
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - tables
+  - attr_list
+  - md_in_html
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Your First Project: getting-started/quickstart.md
+  - Editors:
+    - 3D Viewer: editors/3d-viewer.md
+    - Handling: editors/handling.md
+    - Car Variations: editors/car-variations.md
+    - Sirens: editors/sirens.md
+    - Vehicle Meta: editors/vehicle-meta.md
+  - Export:
+    - FiveM Resource Export: export/fivem.md
+    - ZIP Sharing: export/zip-sharing.md
+  - Reference:
+    - Keyboard Shortcuts: reference/shortcuts.md
+    - File Formats: reference/file-formats.md
+    - Encryption: reference/encryption.md
+  - Changelog: changelog.md
