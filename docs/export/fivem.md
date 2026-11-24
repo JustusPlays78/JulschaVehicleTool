@@ -94,7 +94,7 @@ This matches the correct FiveM behavior where `carcols.meta` is per-resource, no
 
 ### `stream/` files
 
-Binary files are **decrypted** from the project's DPAPI storage and written as plain GTA V binary files — exactly what FiveM needs for streaming.
+Binary files are copied from the project (decrypted first if [local encryption](../reference/encryption.md) is on) and written as plain GTA V binary files — exactly what FiveM needs for streaming.
 
 !!! warning "16 MB stream file limit"
     FiveM crashes when streaming files exceed 16 MB. The export checks each file and shows a warning if any exceed this limit. You can still export, but the server will likely crash on that vehicle.

@@ -1,21 +1,34 @@
 # Encryption
 
-The tool encrypts all project data to prevent accidental access to extracted GTA V assets. Two encryption modes are used depending on context.
+Projects are stored **unencrypted by default**. Local encryption is optional; password encryption is used
+for sharing projects as ZIP.
 
 ---
 
-## Local Storage — DPAPI
+## Local Storage — optional DPAPI
 
 | Property | Value |
 |----------|-------|
+| Default | **Off** — `project.julveh` is plain JSON, vehicle files are the original GTA V files |
+| Switch | **File > Encrypt Project on this PC** (converts all existing files) |
 | Algorithm | Windows Data Protection API (DPAPI) |
 | Scope | `CurrentUser` — bound to your Windows user account |
-| Key management | Automatic (managed by Windows, tied to your login) |
 | Files encrypted | `project.julveh`, all files in `vehicles/` |
 
-DPAPI means **no password is needed** to open a project on the same machine with the same user account. The key is derived automatically from your Windows credentials.
+With encryption on, **only you, on this PC**, can open the project. After reinstalling Windows, on another
+PC or under another user account the project **cannot be opened** — keep a password-protected
+[project ZIP](../export/zip-sharing.md) as backup.
 
-**Consequence:** A project folder copied to another machine or user account **cannot be opened** there. Use [ZIP export](../export/zip-sharing.md) to transfer projects.
+The tool recognises encrypted files by their header, so projects from version 1.0 (always encrypted)
+open as before and stay encrypted until you switch encryption off.
+
+---
+
+## Safe Saving
+
+`project.julveh` is written to `project.julveh.tmp` first and then swapped in; the previous version is kept
+as `project.julveh.bak`. If the project file is damaged (e.g. power loss while saving), the tool opens the
+backup automatically and tells you so.
 
 ---
 
@@ -24,25 +37,23 @@ DPAPI means **no password is needed** to open a project on the same machine with
 | Property | Value |
 |----------|-------|
 | Algorithm | AES-256-GCM (authenticated encryption) |
-| Key derivation | PBKDF2-SHA256, 100 000 iterations, random 16-byte salt |
-| Authentication | 16-byte GCM authentication tag (prevents tampering) |
-| IV | 12-byte random nonce per file |
+| Key derivation | PBKDF2-SHA256, **600 000 iterations**, random 16-byte salt per export |
+| Authentication | 16-byte GCM tag (detects a wrong password or tampering) |
+| Nonce | 12-byte random nonce per file |
 
-On export, every file is individually re-encrypted:
+File format:
 
 ```
-PlainBytes
-  → EncryptWithPassword(password, salt, iv)
-  → [salt (16)] + [iv (12)] + [tag (16)] + [ciphertext]
+"JVE2" | iterations (int32) | salt (16) | nonce (12) | tag (16) | ciphertext
 ```
 
-On import, the process reverses. Files that fail authentication (wrong password or tampered data) throw an exception and abort the import.
+All files of one export share the salt, so the expensive key derivation runs once per export, not once per
+file. ZIPs created with version 1.0 (no `JVE2` header, 100 000 iterations) can still be imported.
 
 ---
 
 ## Security Considerations
 
-- **DPAPI is machine-bound** — cloud sync of a project folder (Dropbox, OneDrive) will not work across machines without ZIP export.
-- **ZIP password strength matters** — use a strong password for shared ZIPs since the key stretching (PBKDF2 / 100k iterations) provides defense against brute force, but a weak password can still be cracked offline.
-- **The tool does not store passwords** — passwords are used transiently in memory and never written to disk.
-- **GTA V binary files are not "DRM-protected"** by this tool — the encryption protects against casual access only. Anyone with the project password can export the original binary files.
+- **ZIP password strength matters** — PBKDF2 slows down brute force, but a weak password can still be cracked offline.
+- **Passwords are never written to disk.** Derived keys are kept in memory only during an export/import and wiped afterwards.
+- **This is not DRM** — anyone with the project (or the ZIP password) can export the original binary files.

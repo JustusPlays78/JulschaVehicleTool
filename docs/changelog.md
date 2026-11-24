@@ -13,6 +13,10 @@
 - **Project-wide validation before export**: duplicate modelName/handlingName/txdName across resources, model name ≠ `.yft` file name, stream file collisions, siren IDs outside 1–255 or reserved
 
 ### Changed
+- **Local encryption is optional and off by default** — new projects are stored as plain files and can be opened on any PC. Switch it on with *File > Encrypt Project on this PC*; projects from 1.0 stay encrypted until you switch it off
+- **Safe saving** — the project file is written via a temp file and the previous version is kept as `project.julveh.bak`; a damaged project file is restored from the backup automatically
+- Project ZIP password key derivation: 600 000 PBKDF2 iterations (was 100 000), derived once per export instead of per file; ZIPs from 1.0 still import
+- CI, releases and docs build run on Forgejo; the GitHub workflows were removed
 - **Rename** renames the folder, the stream files (`old.yft` → `new.yft`, `old_bumf.yft` → `new_bumf.yft`, …) and the meta names (modelName, txdName, handlingName, …) in one step and rolls back on conflicts
 - **Clone** copies the stream files under the new name and renames all meta names — the clone is fully independent
 - New siren groups get the lowest free ID in 1–255 (was: 1000+); colliding imported siren groups are renumbered automatically

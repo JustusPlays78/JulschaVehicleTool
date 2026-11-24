@@ -88,6 +88,12 @@
                     </MenuItem>
                     <MenuItem Header="_Import Project ZIP..." Command="{Binding ImportProjectZipCommand}" />
                     <Separator />
+                    <MenuItem Header="_Encrypt Project on this PC"
+                              IsChecked="{Binding IsProjectEncrypted, Mode=OneWay}"
+                              IsEnabled="{Binding IsProjectOpen}"
+                              Command="{Binding ToggleLocalEncryptionCommand}"
+                              ToolTip="Encrypt the project with your Windows account. Encrypted projects can only be opened by you on this PC." />
+                    <Separator />
                     <MenuItem Header="E_xit" Click="OnExitClick" InputGestureText="Alt+F4" />
                 </MenuItem>
                 <MenuItem Header="_Edit">

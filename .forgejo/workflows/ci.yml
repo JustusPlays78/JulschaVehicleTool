@@ -1,4 +1,4 @@
-# Build + test on every push and pull request.
+# Build + test on every push and pull request, plus a strict MkDocs build of docs/.
 # The WPF app is cross-compiled for Windows on the Linux runner (EnableWindowsTargeting);
 # only the Core tests can run here.
 on:
@@ -40,3 +40,29 @@ jobs:
       - name: Publish Windows exe (smoke test)
         working-directory: src
         run: bash .forgejo/scripts/publish-exe.sh out
+
+  docs:
+    runs-on: docker
+    container:
+      image: python:3.12
+    steps:
+      - name: Checkout
+        env:
+          FORGEJO_TOKEN: ${{ github.token }}
+          SERVER_URL: ${{ github.server_url }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          host=${SERVER_URL#https://}
+          git init -q src && cd src
+          git remote add origin "https://oauth2:${FORGEJO_TOKEN}@${host}/${REPO}.git"
+          git fetch -q --depth 1 origin "$SHA"
+          git checkout -q FETCH_HEAD
+
+      - name: Build docs (strict)
+        working-directory: src
+        env:
+          NO_MKDOCS_2_WARNING: '1'
+        run: |
+          pip install -q mkdocs-material
+          mkdocs build --strict

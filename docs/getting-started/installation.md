@@ -21,8 +21,8 @@
 ## Option B — Build from Source
 
 ```bash
-git clone https://github.com/Schallenkammer/JulschaVehicleTool.git
-cd JulschaVehicleTool
+git clone https://code.julscha.de/Julscha/JudryVehicleTool.git
+cd JudryVehicleTool
 dotnet run --project src/JulschaVehicleTool.App
 ```
 

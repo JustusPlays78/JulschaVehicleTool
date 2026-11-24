@@ -32,7 +32,7 @@ Project
 | **Vehicle Meta** | `vehicles.meta` editor for model name, class, flags, audio |
 | **3D Viewer** | YFT model viewer with LOD switching, wireframe, texture panel |
 | **FiveM export** | Auto-generates `fxmanifest.lua`, meta XMLs, and decrypted stream files |
-| **Encrypted storage** | DPAPI locally; AES-256-GCM + PBKDF2 for ZIP sharing |
+| **Encryption** | Optional DPAPI locally; AES-256-GCM + PBKDF2 for ZIP sharing |
 | **Batch presets** | Apply handling presets to multiple vehicles at once via checkboxes |
 | **Auto-save** | Every 5 minutes and on every context switch |
 
