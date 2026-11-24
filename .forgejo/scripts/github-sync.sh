@@ -8,6 +8,9 @@
 #   - one side is ahead         -> fast-forwarded on the other side
 #   - both sides have new commits (diverged) -> left alone, reported, exit code 1
 #
+# Branches listed in SYNC_EXCLUDE (space-separated, shell globs allowed) are skipped,
+# e.g. generated branches like gh-pages that are force-pushed by a deploy job.
+#
 # Branch deletions are NOT propagated (a branch deleted on only one side is
 # recreated from the other). Delete branches on both sides.
 # Tags are only created, never moved or deleted.
@@ -15,6 +18,16 @@ set -uo pipefail
 
 A=${SYNC_REMOTE_A:-origin}
 B=${SYNC_REMOTE_B:-github}
+EXCLUDE=${SYNC_EXCLUDE:-}
+
+is_excluded() {
+  local pattern
+  for pattern in $EXCLUDE; do
+    # shellcheck disable=SC2053
+    [[ "$1" == $pattern ]] && return 0
+  done
+  return 1
+}
 
 git fetch --prune --no-tags "$A" "+refs/heads/*:refs/remotes/$A/*" || exit 2
 git fetch --prune --no-tags "$B" "+refs/heads/*:refs/remotes/$B/*" || exit 2
@@ -35,6 +48,11 @@ push() { # remote sha branch
 }
 
 for br in $branches; do
+  if is_excluded "$br"; then
+    echo "[$br] excluded"
+    continue
+  fi
+
   a=$(git rev-parse -q --verify "refs/remotes/$A/$br" || true)
   b=$(git rev-parse -q --verify "refs/remotes/$B/$br" || true)
 
