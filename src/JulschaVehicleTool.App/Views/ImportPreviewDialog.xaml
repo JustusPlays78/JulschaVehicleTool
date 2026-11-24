@@ -31,10 +31,18 @@
                                 Background="{DynamicResource SurfaceVariantBrush}"
                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
                             <StackPanel>
-                                <CheckBox IsChecked="{Binding Include, Mode=TwoWay}" VerticalContentAlignment="Center">
-                                    <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource OnSurfaceBrush}" />
-                                </CheckBox>
+                                <DockPanel LastChildFill="False">
+                                    <CheckBox DockPanel.Dock="Left" IsChecked="{Binding Include, Mode=TwoWay}" VerticalContentAlignment="Center">
+                                        <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource OnSurfaceBrush}" />
+                                    </CheckBox>
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
+                                                ToolTip="Import under a different name. Files (name.yft, name_hi.yft, ...) and meta names are renamed.">
+                                        <TextBlock Text="Import as" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0"
+                                                   Foreground="{DynamicResource OnSurfaceVariantBrush}" />
+                                        <TextBox Width="170" Text="{Binding ImportAs, UpdateSourceTrigger=PropertyChanged}" />
+                                    </StackPanel>
+                                </DockPanel>
                                 <TextBlock Text="{Binding FilesSummary}" FontSize="12" Margin="24,4,0,0" TextWrapping="Wrap"
                                            Foreground="{DynamicResource OnSurfaceVariantBrush}" />
                                 <TextBlock Text="{Binding MetaSummary}" FontSize="12" Margin="24,2,0,0" TextWrapping="Wrap"

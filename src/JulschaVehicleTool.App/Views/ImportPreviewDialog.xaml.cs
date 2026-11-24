@@ -62,6 +62,12 @@ public partial class ImportPreviewDialog : Window
             set => _c.Include = value;
         }
 
+        public string ImportAs
+        {
+            get => string.IsNullOrWhiteSpace(_c.ImportAs) ? _c.Name : _c.ImportAs;
+            set => _c.ImportAs = string.IsNullOrWhiteSpace(value) || value.Trim() == _c.Name ? null : value.Trim();
+        }
+
         public string FilesSummary
         {
             get

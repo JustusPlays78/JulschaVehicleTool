@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **Drag & drop import** of vehicle folders and `.zip` files (also whole packs / FiveM resources) with a preview: per-vehicle checkbox, detected files and metas, warnings
+- Metas are recognised by their XML content, not the file name; vehicle names come from `vehicles.meta` or the `.yft` files
+- **Mod kit parts and extra texture dictionaries** (`name_*.yft`, `name_*.ytd`, `name+hi*.ytd`) are imported and exported
+- **Import as…** — vehicles whose name already exists get a free name proposed; files and meta names are renamed
+- **IDs used on server** for siren groups; new and imported groups never get these IDs
+- **Project-wide validation before export**: duplicate modelName/handlingName/txdName across resources, model name ≠ `.yft` file name, stream file collisions, siren IDs outside 1–255 or reserved
+
+### Changed
+- **Rename** renames the folder, the stream files (`old.yft` → `new.yft`, `old_bumf.yft` → `new_bumf.yft`, …) and the meta names (modelName, txdName, handlingName, …) in one step and rolls back on conflicts
+- **Clone** copies the stream files under the new name and renames all meta names — the clone is fully independent
+- New siren groups get the lowest free ID in 1–255 (was: 1000+); colliding imported siren groups are renumbered automatically
+- Saving deletes files of removed vehicles/resources; the project ZIP only contains referenced files
+- Import runs in the background
+
+### Fixed
+- Importing `name_bumf.yft` with *Import Vehicle Files* overwrote the main model
+- Meta auto-match: `police1` no longer matches `police10`; partial matches are only suggested; a vehicle is matched at most once
+- Rename silently broke file paths when the target folder existed
+- Vehicle names were only unique per resource, so vehicles in different resources overwrote each other's files
+
 ## 1.0.0 — 2026-11-24
 
 ### Added
