@@ -1,0 +1,66 @@
+# Two-way sync between this Forgejo repo and the GitHub copy.
+#
+# Forgejo is the primary repo; GitHub is kept in sync in both directions as long as
+# only one side has new commits on a branch (fast-forward). If a branch diverged,
+# the job fails and lists it - merge/rebase by hand and push to Forgejo.
+#
+# Logic: .forgejo/scripts/github-sync.sh
+#
+# Setup (repo settings → Actions → Secrets):
+#   GH_SYNC_TOKEN   GitHub fine-grained token for JustusPlays78/JulschaVehicleTool
+#                   with "Contents: Read and write".
+#
+# Scheduled runs only use the workflow file from the default branch.
+on:
+  push:
+    branches: ['**']
+    tags: ['**']
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: github-sync
+  cancel-in-progress: false
+
+env:
+  GITHUB_REPO: JustusPlays78/JulschaVehicleTool
+
+jobs:
+  sync:
+    runs-on: docker
+    steps:
+      - name: Prepare repository
+        env:
+          FORGEJO_TOKEN: ${{ github.token }}
+          GH_SYNC_TOKEN: ${{ secrets.GH_SYNC_TOKEN }}
+          SERVER_URL: ${{ github.server_url }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ -z "$GH_SYNC_TOKEN" ]; then
+            echo "::error::Secret GH_SYNC_TOKEN is not set."
+            exit 1
+          fi
+          git init -q sync && cd sync
+          git config user.name "github-sync"
+          git config user.email "github-sync@noreply.code.julscha.de"
+
+          host=${SERVER_URL#https://}
+          git remote add origin "https://oauth2:${FORGEJO_TOKEN}@${host}/${REPO}.git"
+          git remote add github "https://x-access-token:${GH_SYNC_TOKEN}@github.com/${GITHUB_REPO}.git"
+
+      - name: Checkout sync script
+        env:
+          FORGEJO_TOKEN: ${{ github.token }}
+          SERVER_URL: ${{ github.server_url }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          host=${SERVER_URL#https://}
+          git clone -q --depth 1 --no-checkout "https://oauth2:${FORGEJO_TOKEN}@${host}/${REPO}.git" script
+          git -C script fetch -q --depth 1 origin "$SHA"
+          git -C script checkout -q FETCH_HEAD -- .forgejo/scripts/github-sync.sh
+
+      - name: Sync branches and tags
+        working-directory: sync
+        run: bash ../script/.forgejo/scripts/github-sync.sh
