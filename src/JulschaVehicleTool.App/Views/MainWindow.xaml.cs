@@ -19,8 +19,13 @@ public partial class MainWindow : Window
 
     private void OnAboutClick(object sender, RoutedEventArgs e)
     {
+        var version = System.Reflection.Assembly.GetExecutingAssembly()
+            .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+            .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+            .FirstOrDefault()?.InformationalVersion.Split('+')[0] ?? "?";
+
         MessageBox.Show(
-            "Julscha Vehicle Tool\nVersion 1.0.0\n\nFiveM Vehicle Resource Builder\n\n\u00a9 2026 Julscha",
+            $"Julscha Vehicle Tool\nVersion {version}\n\nFiveM Vehicle Resource Builder\n\n\u00a9 2026 Julscha",
             "About",
             MessageBoxButton.OK,
             MessageBoxImage.Information);

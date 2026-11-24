@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.0 — 2026-11-24
 
 ### Added
 - **Project-level siren pool** — siren groups are now defined once at the project level; vehicles reference them by ID

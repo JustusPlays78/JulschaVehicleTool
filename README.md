@@ -47,13 +47,13 @@ Project
 ## Requirements
 
 - Windows 10 / 11 (64-bit)
-- [.NET 8 Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)
+- No .NET installation needed — the release `.exe` is self-contained
 
 ---
 
 ## Getting Started
 
-**Download** the latest release from the [Releases page](https://github.com/JustusPlays78/JulschaVehicleTool/releases), extract, and run `JulschaVehicleTool.exe`.
+**Download** `JulschaVehicleTool-<version>-win-x64.exe` from the [Releases page](https://code.julscha.de/Julscha/JudryVehicleTool/releases) and run it — no installer needed.
 
 Or build from source:
 
