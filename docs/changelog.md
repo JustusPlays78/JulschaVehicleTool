@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 — 2026-11-24
 
 ### Added
 - **Drag & drop import** of vehicle folders and `.zip` files (also whole packs / FiveM resources) with a preview: per-vehicle checkbox, detected files and metas, warnings
