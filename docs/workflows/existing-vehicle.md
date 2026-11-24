@@ -79,7 +79,7 @@ Select the `.yft` and `.ytd` files. The tool accepts:
 | `name+hi.ytd` | High-detail texture dictionary |
 | anything else (`name_bumf.yft`, `name_livery.ytd`, …) | Extra files (mod parts, extra textures) — exported to `stream/` as well |
 
-Each file is encrypted with DPAPI and stored in `vehicles/police1/` inside the project folder.
+Each file is stored in `vehicles/police1/` inside the project folder (encrypted only if [local encryption](../reference/encryption.md) is on).
 
 ---
 

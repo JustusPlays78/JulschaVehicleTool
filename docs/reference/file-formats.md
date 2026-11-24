@@ -4,9 +4,9 @@
 
 | File | Format | Description |
 |------|--------|-------------|
-| `project.julveh` | DPAPI-encrypted JSON | All project metadata: vehicles, handling, meta, siren groups |
-| `vehicles/<name>/*.yft` | DPAPI-encrypted binary | GTA V YFT model file |
-| `vehicles/<name>/*.ytd` | DPAPI-encrypted binary | GTA V YTD texture dictionary |
+| `project.julveh` | JSON (DPAPI-encrypted if local encryption is on) | All project metadata: vehicles, handling, meta, siren groups |
+| `vehicles/<name>/*.yft` | Original binary (DPAPI-encrypted if local encryption is on) | GTA V YFT model file |
+| `vehicles/<name>/*.ytd` | Original binary (DPAPI-encrypted if local encryption is on) | GTA V YTD texture dictionary |
 
 The JSON inside `project.julveh` uses camelCase property names and omits null values.
 

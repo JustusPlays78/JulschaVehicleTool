@@ -6,7 +6,9 @@ This workflow covers exporting a project as a password-protected ZIP file and im
 
 ## Why ZIP Sharing Exists
 
-The standard project file (`project.julveh`) uses DPAPI to encrypt vehicle binary files. DPAPI is tied to the current Windows user account and machine. A project folder copied directly to another machine cannot be decrypted by a different user. The ZIP export re-encrypts the project under a symmetric password (AES-256-GCM with PBKDF2 key derivation), making the archive portable.
+A ZIP export packs the whole project into one password-protected archive (AES-256-GCM with PBKDF2 key
+derivation). It is portable to any PC — unlike a project folder with [local encryption](../reference/encryption.md)
+switched on, which only you can open on your PC.
 
 ---
 
@@ -40,7 +42,7 @@ Send the `.zip` file to the recipient through any channel (file share, cloud sto
 
 The tool:
 - Decrypts the archive using the provided password
-- Re-encrypts all binary files with the recipient's local DPAPI credentials
+- Stores the files like the original project did (encrypted for the recipient's account only if local encryption was on)
 - Writes the project to the chosen destination folder
 - Opens the imported project automatically
 
@@ -65,7 +67,7 @@ If binary files are missing or the 3D viewer shows an error, the import may have
 | Scenario | Notes |
 |---|---|
 | Collaborating with a teammate | Export ZIP → share → teammate imports, edits, re-exports ZIP back |
-| Backup to an external drive | ZIP can be stored on any external media; DPAPI binding is removed |
+| Backup to an external drive | ZIP can be stored on any external media and opened on any PC |
 | Moving to a new machine | Export ZIP from old machine, import on new machine |
 | Handing off a finished pack | Recipient only needs to import and export as FiveM resource; no edits required |
 
@@ -76,4 +78,4 @@ If binary files are missing or the 3D viewer shows an error, the import may have
 - The password is never stored by the tool. If the password is lost, the archive cannot be recovered.
 - AES-256-GCM authenticated encryption is used. A tampered archive will fail to import.
 - The decrypted content exists in memory only during import; it is not written to disk in unencrypted form.
-- After import, all files are re-encrypted with DPAPI and are protected by the recipient's Windows account. The original archive remains encrypted and can be safely deleted from the recipient's machine once import succeeds.
+- After import the files are stored like in the original project (plain, or DPAPI-encrypted if local encryption was on). The archive itself stays encrypted and can be deleted once the import succeeded.

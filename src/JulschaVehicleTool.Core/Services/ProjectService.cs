@@ -13,6 +13,13 @@ public interface IProjectService
     Project Open(string folderPath);
     void Save(Project project);
 
+    /// <summary>
+    /// Turns DPAPI encryption of the project on or off and converts the project file and all
+    /// vehicle files accordingly.
+    /// </summary>
+    void SetLocalEncryption(Project project, bool encrypt,
+        IProgress<(int current, int total, string message)>? progress = null);
+
     /// <summary>Deletes files in vehicles/ that no vehicle references. Returns the number of deleted files.</summary>
     int DeleteUnreferencedFiles(Project project);
     void SaveAs(Project project, string newFolderPath);
@@ -94,20 +101,119 @@ public class ProjectService : IProjectService
         if (!File.Exists(projectFilePath))
             throw new FileNotFoundException($"Project file not found: {projectFilePath}");
 
-        var encryptedBytes = File.ReadAllBytes(projectFilePath);
-        var jsonBytes = _encryption.DecryptLocal(encryptedBytes);
-        var json = Encoding.UTF8.GetString(jsonBytes);
+        Project project;
+        bool wasEncrypted;
+        bool fromBackup = false;
+        try
+        {
+            (project, wasEncrypted) = ReadProjectFile(projectFilePath);
+        }
+        catch (Exception ex) when (File.Exists(projectFilePath + BackupSuffix))
+        {
+            // Damaged project file (e.g. crash while writing): fall back to the last good version
+            try
+            {
+                (project, wasEncrypted) = ReadProjectFile(projectFilePath + BackupSuffix);
+                fromBackup = true;
+            }
+            catch
+            {
+                throw new InvalidOperationException($"Project file and its backup could not be read: {ex.Message}", ex);
+            }
+        }
 
-        var project = JsonSerializer.Deserialize<Project>(json, ProjectJsonOptions.Default)
-                      ?? throw new InvalidOperationException("Failed to deserialize project file.");
+        // Projects from before 1.1 have no EncryptLocal flag but are DPAPI-encrypted: keep them encrypted
+        if (wasEncrypted) project.EncryptLocal = true;
 
         project.FolderPath = folderPath;
+        project.LoadedFromBackup = fromBackup;
         project.IsDirty = false;
 
         // Migrate old per-vehicle CarCols to the project-level pool (one-time, backward compat)
         MigrateVehicleCarColsToProject(project);
+        if (fromBackup) project.IsDirty = true;
 
         return project;
+    }
+
+    private (Project project, bool wasEncrypted) ReadProjectFile(string path)
+    {
+        var raw = File.ReadAllBytes(path);
+        var wasEncrypted = IsDpapiBlob(raw);
+        var json = Encoding.UTF8.GetString(wasEncrypted ? _encryption.DecryptLocal(raw) : raw);
+        var project = JsonSerializer.Deserialize<Project>(json, ProjectJsonOptions.Default)
+                      ?? throw new InvalidOperationException("Failed to deserialize project file.");
+        return (project, wasEncrypted);
+    }
+
+    // --- Local storage encoding ---
+
+    private const string BackupSuffix = ".bak";
+
+    // DPAPI blobs start with dwVersion = 1 followed by the provider GUID df9d8cd0-1501-11d1-8c7a-00c04fc297eb.
+    // GTA resources start with "RSC7" and JSON with '{', so the formats can't be confused.
+    private static readonly byte[] DpapiHeader =
+        [0x01, 0x00, 0x00, 0x00, 0xD0, 0x8C, 0x9D, 0xDF, 0x01, 0x15, 0xD1, 0x11, 0x8C, 0x7A, 0x00, 0xC0, 0x4F, 0xC2, 0x97, 0xEB];
+
+    public static bool IsDpapiBlob(byte[] data) =>
+        data.Length > DpapiHeader.Length && data.AsSpan(0, DpapiHeader.Length).SequenceEqual(DpapiHeader);
+
+    /// <summary>Reads a stored file and decrypts it if it is DPAPI-encrypted (works for mixed projects).</summary>
+    private byte[] ReadStored(string path)
+    {
+        var raw = File.ReadAllBytes(path);
+        return IsDpapiBlob(raw) ? _encryption.DecryptLocal(raw) : raw;
+    }
+
+    private byte[] EncodeStored(Project project, byte[] plain) =>
+        project.EncryptLocal ? _encryption.EncryptLocal(plain) : plain;
+
+    /// <summary>Writes via a temp file and rename so a crash never leaves a half-written file.</summary>
+    private static void WriteAtomic(string path, byte[] data, string? backupPath = null)
+    {
+        var tmp = path + ".tmp";
+        File.WriteAllBytes(tmp, data);
+        if (File.Exists(path))
+        {
+            if (backupPath != null) File.Replace(tmp, path, backupPath, ignoreMetadataErrors: true);
+            else File.Move(tmp, path, overwrite: true);
+        }
+        else
+        {
+            File.Move(tmp, path);
+        }
+    }
+
+    public void SetLocalEncryption(Project project, bool encrypt,
+        IProgress<(int current, int total, string message)>? progress = null)
+    {
+        if (string.IsNullOrEmpty(project.FolderPath))
+            throw new InvalidOperationException("Project has no folder path.");
+
+        var vehiclesDir = Path.Combine(project.FolderPath, VehiclesFolder);
+        var files = Directory.Exists(vehiclesDir)
+            ? Directory.GetFiles(vehiclesDir, "*", SearchOption.AllDirectories)
+                .Where(f => !f.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)).ToArray()
+            : [];
+
+        project.EncryptLocal = encrypt;
+        int current = 0;
+        foreach (var file in files)
+        {
+            progress?.Report((++current, files.Length + 1, $"{(encrypt ? "Encrypting" : "Decrypting")} {Path.GetFileName(file)}..."));
+            var raw = File.ReadAllBytes(file);
+            if (IsDpapiBlob(raw) == encrypt) continue; // already in the target format
+            WriteAtomic(file, EncodeStored(project, IsDpapiBlob(raw) ? _encryption.DecryptLocal(raw) : raw));
+        }
+
+        progress?.Report((files.Length + 1, files.Length + 1, "Saving project file..."));
+        SaveProjectFile(project);
+        project.IsDirty = false;
+
+        // The backup still has the old format; replace it so it matches the setting
+        var backup = Path.Combine(project.FolderPath, ProjectFileName + BackupSuffix);
+        if (File.Exists(backup))
+            File.Copy(Path.Combine(project.FolderPath, ProjectFileName), backup, overwrite: true);
     }
 
     private static void MigrateVehicleCarColsToProject(Project project)
@@ -229,10 +335,8 @@ public class ProjectService : IProjectService
             var fileName = Path.GetFileName(sourcePath);
             var destPath = Path.Combine(vehicleDir, fileName);
 
-            // Read, encrypt, and write
-            var plainBytes = File.ReadAllBytes(sourcePath);
-            var encryptedBytes = _encryption.EncryptLocal(plainBytes);
-            File.WriteAllBytes(destPath, encryptedBytes);
+            // Read, (optionally) encrypt, and write
+            File.WriteAllBytes(destPath, EncodeStored(project, File.ReadAllBytes(sourcePath)));
 
             // Assign to the correct vehicle property based on file type
             var relativePath = Path.Combine(vehicle.Name, fileName);
@@ -486,7 +590,7 @@ public class ProjectService : IProjectService
         Directory.CreateDirectory(vehicleDir);
 
         var fileName = targetFileName ?? Path.GetFileName(sourcePath);
-        File.WriteAllBytes(Path.Combine(vehicleDir, fileName), _encryption.EncryptLocal(File.ReadAllBytes(sourcePath)));
+        File.WriteAllBytes(Path.Combine(vehicleDir, fileName), EncodeStored(project, File.ReadAllBytes(sourcePath)));
         return Path.Combine(vehicleName, fileName);
     }
 
@@ -499,8 +603,7 @@ public class ProjectService : IProjectService
         if (!File.Exists(fullPath))
             throw new FileNotFoundException($"Vehicle file not found: {fullPath}");
 
-        var encryptedBytes = File.ReadAllBytes(fullPath);
-        return _encryption.DecryptLocal(encryptedBytes);
+        return ReadStored(fullPath);
     }
 
     public void ExportProjectZip(Project project, string zipPath, string password,
@@ -540,8 +643,8 @@ public class ProjectService : IProjectService
                     var destPath = Path.Combine(tempVehiclesDir, relativePath);
                     Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
 
-                    // Decrypt from DPAPI, re-encrypt with password
-                    var decrypted = _encryption.DecryptLocal(File.ReadAllBytes(file));
+                    // Decrypt local storage (if encrypted), encrypt with password
+                    var decrypted = ReadStored(file);
                     var reEncrypted = _encryption.EncryptWithPassword(decrypted, password);
                     File.WriteAllBytes(destPath, reEncrypted);
                 }
@@ -554,6 +657,7 @@ public class ProjectService : IProjectService
         }
         finally
         {
+            _encryption.ClearPasswordCache();
             if (Directory.Exists(tempDir))
                 Directory.Delete(tempDir, true);
         }
@@ -602,10 +706,9 @@ public class ProjectService : IProjectService
                     var destPath = Path.Combine(targetVehiclesDir, relativePath);
                     Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
 
-                    // Decrypt with password, re-encrypt with DPAPI
+                    // Decrypt with password, store according to the project's local encryption setting
                     var decrypted = _encryption.DecryptWithPassword(File.ReadAllBytes(file), password);
-                    var localEncrypted = _encryption.EncryptLocal(decrypted);
-                    File.WriteAllBytes(destPath, localEncrypted);
+                    File.WriteAllBytes(destPath, EncodeStored(project, decrypted));
                 }
             }
 
@@ -618,6 +721,7 @@ public class ProjectService : IProjectService
         }
         finally
         {
+            _encryption.ClearPasswordCache();
             if (Directory.Exists(tempDir))
                 Directory.Delete(tempDir, true);
         }
@@ -862,11 +966,11 @@ public class ProjectService : IProjectService
             throw new InvalidOperationException("Project has no folder path.");
 
         var json = SerializeProject(project);
-        var jsonBytes = Encoding.UTF8.GetBytes(json);
-        var encrypted = _encryption.EncryptLocal(jsonBytes);
+        var bytes = EncodeStored(project, Encoding.UTF8.GetBytes(json));
 
+        // Atomic: write project.julveh.tmp, then swap it in and keep the previous file as .bak
         var projectFilePath = Path.Combine(project.FolderPath, ProjectFileName);
-        File.WriteAllBytes(projectFilePath, encrypted);
+        WriteAtomic(projectFilePath, bytes, projectFilePath + BackupSuffix);
     }
 
     private static string SerializeProject(Project project)

@@ -2,8 +2,7 @@
 
 **Desktop editor for GTA V vehicles — organize, edit, and export FiveM vehicle resources.**
 
-[![Build](https://github.com/JustusPlays78/JulschaVehicleTool/actions/workflows/build.yml/badge.svg)](https://github.com/JustusPlays78/JulschaVehicleTool/actions/workflows/build.yml)
-[![Docs](https://github.com/JustusPlays78/JulschaVehicleTool/actions/workflows/docs.yml/badge.svg)](https://justusplays78.github.io/JulschaVehicleTool)
+[![CI](https://code.julscha.de/Julscha/JudryVehicleTool/actions/workflows/ci.yml/badge.svg)](https://code.julscha.de/Julscha/JudryVehicleTool/actions?workflow=ci.yml)
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue)
 ![.NET](https://img.shields.io/badge/.NET-8-purple)
 ![License](https://img.shields.io/badge/license-All%20rights%20reserved-red)
@@ -38,7 +37,7 @@ Project
 | 🚗 | **Vehicle Meta** — Model name, class, flags, audio hash |
 | 🧊 | **3D Viewer** — LOD switching, wireframe, texture panel |
 | 📦 | **FiveM export** — Auto-generates `fxmanifest.lua`, meta XMLs, decrypted stream files |
-| 🔒 | **Encrypted storage** — DPAPI locally; AES-256-GCM for ZIP sharing |
+| 🔒 | **Encryption** — optional DPAPI locally; AES-256-GCM for password-protected ZIP sharing |
 | 🔍 | **Tree filter** — Live search/filter in the sidebar |
 | ✅ | **Validation** — Warns before export on missing fields or mismatched IDs |
 
@@ -58,8 +57,8 @@ Project
 Or build from source:
 
 ```bash
-git clone https://github.com/JustusPlays78/JulschaVehicleTool.git
-cd JulschaVehicleTool
+git clone https://code.julscha.de/Julscha/JudryVehicleTool.git
+cd JudryVehicleTool
 dotnet run --project src/JulschaVehicleTool.App
 ```
 
@@ -80,13 +79,13 @@ dotnet run --project src/JulschaVehicleTool.App
 
 ## Documentation
 
-Full documentation: **[justusplays78.github.io/JulschaVehicleTool](https://justusplays78.github.io/JulschaVehicleTool)**
+Full documentation: **[docs/](https://code.julscha.de/Julscha/JudryVehicleTool/src/branch/main/docs)** (MkDocs — `pip install mkdocs-material && mkdocs serve` for a local site)
 
-- [Installation](https://justusplays78.github.io/JulschaVehicleTool/getting-started/installation/)
-- [Your First Project](https://justusplays78.github.io/JulschaVehicleTool/getting-started/quickstart/)
-- [Handling Editor](https://justusplays78.github.io/JulschaVehicleTool/editors/handling/)
-- [Siren Pool](https://justusplays78.github.io/JulschaVehicleTool/editors/sirens/)
-- [FiveM Export](https://justusplays78.github.io/JulschaVehicleTool/export/fivem/)
+- [Installation](https://code.julscha.de/Julscha/JudryVehicleTool/src/branch/main/docs/getting-started/installation.md)
+- [Your First Project](https://code.julscha.de/Julscha/JudryVehicleTool/src/branch/main/docs/getting-started/quickstart.md)
+- [Handling Editor](https://code.julscha.de/Julscha/JudryVehicleTool/src/branch/main/docs/editors/handling.md)
+- [Siren Pool](https://code.julscha.de/Julscha/JudryVehicleTool/src/branch/main/docs/editors/sirens.md)
+- [FiveM Export](https://code.julscha.de/Julscha/JudryVehicleTool/src/branch/main/docs/export/fivem.md)
 
 ---
 

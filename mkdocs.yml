@@ -2,9 +2,9 @@ site_name: Julscha Vehicle Tool
 site_description: GTA V / FiveM Vehicle Resource Editor for Windows
 site_author: Julscha
 docs_dir: docs
-repo_url: https://github.com/JustusPlays78/JulschaVehicleTool
+repo_url: https://code.julscha.de/Julscha/JudryVehicleTool
 repo_name: JulschaVehicleTool
-edit_uri: edit/main/docs/
+edit_uri: _edit/main/docs/
 
 theme:
   name: material
@@ -26,7 +26,7 @@ theme:
     - content.code.copy
     - content.action.edit
   icon:
-    repo: fontawesome/brands/github
+    repo: fontawesome/brands/git-alt
 
 markdown_extensions:
   - admonition
