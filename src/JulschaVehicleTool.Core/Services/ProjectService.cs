@@ -12,6 +12,9 @@ public interface IProjectService
     Project CreateNew(string folderPath);
     Project Open(string folderPath);
     void Save(Project project);
+
+    /// <summary>Deletes files in vehicles/ that no vehicle references. Returns the number of deleted files.</summary>
+    int DeleteUnreferencedFiles(Project project);
     void SaveAs(Project project, string newFolderPath);
 
     void ImportVehicleFiles(Project project, Vehicle vehicle, string[] sourcePaths);
@@ -42,8 +45,8 @@ public interface IProjectService
     Project ImportProjectZip(string zipPath, string password, string targetFolderPath,
         IProgress<(int current, int total, string message)>? progress = null);
 
-    void RenameVehicle(Project project, Vehicle vehicle, string oldName, string newName);
-    Vehicle CloneVehicle(Vehicle vehicle);
+    void RenameVehicle(Project project, Vehicle vehicle, string oldName, string newName, bool updateMetaNames = true);
+    Vehicle CloneVehicle(Project project, Vehicle vehicle, string newName);
 
     List<string> LoadRecentProjects();
     void AddToRecentProjects(string folderPath);
@@ -57,6 +60,12 @@ public class ProjectService : IProjectService
     private const string RecentProjectsFileName = "recent_projects.json";
     private const int MaxRecentProjects = 10;
 
+
+    /// <summary>
+    /// Files written by a running <see cref="PrepareImport"/> that are not referenced by the project yet.
+    /// <see cref="DeleteUnreferencedFiles"/> must not touch them (e.g. auto-save during an import).
+    /// </summary>
+    private readonly HashSet<string> _pendingFiles = new(StringComparer.OrdinalIgnoreCase);
 
     public ProjectService(IEncryptionService encryption)
     {
@@ -135,6 +144,54 @@ public class ProjectService : IProjectService
 
         SaveProjectFile(project);
         project.IsDirty = false;
+        DeleteUnreferencedFiles(project);
+    }
+
+    /// <summary>
+    /// Full paths of all stream files referenced by any vehicle of the project.
+    /// </summary>
+    private static HashSet<string> ReferencedFiles(Project project)
+    {
+        var vehiclesDir = Path.Combine(project.FolderPath!, VehiclesFolder);
+        return project.Resources.SelectMany(r => r.Vehicles).SelectMany(v => v.AllStreamFiles)
+            .Select(rel => Path.GetFullPath(Path.Combine(vehiclesDir, rel)))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Removes files in vehicles/ that no vehicle references any more (deleted vehicles/resources,
+    /// replaced files) and empty folders. Runs after the project file was written, so the files
+    /// on disk always match the saved project.
+    /// </summary>
+    public int DeleteUnreferencedFiles(Project project)
+    {
+        if (string.IsNullOrEmpty(project.FolderPath)) return 0;
+        var vehiclesDir = Path.Combine(project.FolderPath, VehiclesFolder);
+        if (!Directory.Exists(vehiclesDir)) return 0;
+
+        var referenced = ReferencedFiles(project);
+        int deleted = 0;
+
+        foreach (var file in Directory.EnumerateFiles(vehiclesDir, "*", SearchOption.AllDirectories).ToList())
+        {
+            var full = Path.GetFullPath(file);
+            if (referenced.Contains(full)) continue;
+            lock (_pendingFiles)
+                if (_pendingFiles.Contains(full)) continue;
+            try { File.Delete(file); deleted++; } catch { /* locked: try again next save */ }
+        }
+
+        foreach (var dir in Directory.EnumerateDirectories(vehiclesDir, "*", SearchOption.AllDirectories)
+                     .OrderByDescending(d => d.Length).ToList())
+        {
+            try
+            {
+                if (!Directory.EnumerateFileSystemEntries(dir).Any()) Directory.Delete(dir);
+            }
+            catch { /* ignore */ }
+        }
+
+        return deleted;
     }
 
     public void SaveAs(Project project, string newFolderPath)
@@ -211,52 +268,114 @@ public class ProjectService : IProjectService
         var selected = scan.Vehicles.Where(v => v.Include).ToList();
         var current = 0;
 
-        foreach (var candidate in selected)
+        try
         {
-            progress?.Report((++current, selected.Count, $"Importing {candidate.Name}..."));
-
-            if (!existingNames.Add(candidate.Name))
+            foreach (var candidate in selected)
             {
-                result.Warnings.Add($"Skipped '{candidate.Name}': a vehicle with this name already exists in the project.");
-                continue;
+                progress?.Report((++current, selected.Count, $"Importing {candidate.Name}..."));
+
+                var name = string.IsNullOrWhiteSpace(candidate.ImportAs) ? candidate.Name : candidate.ImportAs.Trim();
+                if (!VehicleNaming.IsValidName(name, out var nameError))
+                {
+                    result.Warnings.Add($"Skipped '{candidate.Name}': {nameError}");
+                    continue;
+                }
+                if (!existingNames.Add(name))
+                {
+                    result.Warnings.Add($"Skipped '{candidate.Name}': a vehicle named '{name}' already exists in the project.");
+                    continue;
+                }
+
+                var vehicle = VehicleDefaults.CreateDefault(candidate.Name);
+                vehicle.CarCols = null; // sirens live in the project pool
+                if (candidate.VehicleMeta != null) vehicle.VehicleMeta = candidate.VehicleMeta;
+                if (candidate.Handling != null) vehicle.Handling = candidate.Handling;
+                if (candidate.CarVariation != null) vehicle.CarVariation = candidate.CarVariation;
+                if (vehicle.VehicleMeta != null && string.IsNullOrEmpty(vehicle.VehicleMeta.DisplayName))
+                    vehicle.VehicleMeta.DisplayName = vehicle.VehicleMeta.GameName;
+
+                // Importing under a different name: rename files (old.yft → new.yft, old_bumf.yft → new_bumf.yft)
+                // and all meta names that refer to the original name.
+                if (name != candidate.Name)
+                {
+                    vehicle.Name = name;
+                    VehicleNaming.ApplyNameToMetas(vehicle, candidate.Name, name);
+                }
+
+                string? Store(string? source)
+                {
+                    if (source == null) return null;
+                    var fileName = VehicleNaming.RenameFileName(Path.GetFileName(source), candidate.Name, name);
+                    var full = Path.GetFullPath(Path.Combine(project.FolderPath!, VehiclesFolder, name, fileName));
+                    lock (_pendingFiles) _pendingFiles.Add(full);
+                    result.StoredFiles.Add(full);
+                    return StoreFile(project, name, source, fileName);
+                }
+
+                vehicle.YftRelativePath = Store(candidate.Model);
+                vehicle.YftHiRelativePath = Store(candidate.ModelHi);
+                vehicle.YtdRelativePath = Store(candidate.Texture);
+                vehicle.YtdHiRelativePath = Store(candidate.TextureHi);
+                foreach (var extra in candidate.ModParts.Concat(candidate.ExtraTextures))
+                    vehicle.ExtraFiles.Add(Store(extra)!);
+
+                result.ImportedVehicles.Add(vehicle);
             }
 
-            var vehicle = VehicleDefaults.CreateDefault(candidate.Name);
-            vehicle.CarCols = null; // sirens live in the project pool
-            if (candidate.VehicleMeta != null) vehicle.VehicleMeta = candidate.VehicleMeta;
-            if (candidate.Handling != null) vehicle.Handling = candidate.Handling;
-            if (candidate.CarVariation != null) vehicle.CarVariation = candidate.CarVariation;
-            if (vehicle.VehicleMeta != null && string.IsNullOrEmpty(vehicle.VehicleMeta.DisplayName))
-                vehicle.VehicleMeta.DisplayName = vehicle.VehicleMeta.GameName;
+            // Siren groups: only those referenced by imported vehicles
+            var referenced = result.ImportedVehicles
+                .Select(v => v.CarVariation?.SirenSettings ?? 0).Where(id => id != 0).ToHashSet();
+            var reserved = SirenIds.ParseList(project.ReservedSirenIds);
+            var taken = SirenIds.Used(project);
+            foreach (var siren in scan.CarCols.SirenSettings.Where(s => referenced.Contains(s.Id)))
+            {
+                var existing = project.CarCols.SirenSettings.FirstOrDefault(s => s.Id == siren.Id);
+                if (existing != null && SameSiren(existing, siren))
+                    continue; // identical group already in the pool
 
-            vehicle.YftRelativePath = StoreFile(project, vehicle.Name, candidate.Model);
-            vehicle.YftHiRelativePath = StoreFile(project, vehicle.Name, candidate.ModelHi);
-            vehicle.YtdRelativePath = StoreFile(project, vehicle.Name, candidate.Texture);
-            vehicle.YtdHiRelativePath = StoreFile(project, vehicle.Name, candidate.TextureHi);
-            foreach (var extra in candidate.ModParts.Concat(candidate.ExtraTextures))
-                vehicle.ExtraFiles.Add(StoreFile(project, vehicle.Name, extra)!);
+                bool conflict = existing != null || reserved.Contains(siren.Id) || !SirenIds.IsValid(siren.Id);
+                if (conflict)
+                {
+                    var newId = SirenIds.NextFree(taken);
+                    if (newId == null)
+                    {
+                        result.Warnings.Add($"Siren setting {siren.Id} ('{siren.Name}') conflicts and no free ID (1–255) is left — not imported.");
+                        continue;
+                    }
 
-            result.ImportedVehicles.Add(vehicle);
-        }
+                    var reason = existing != null ? "already used in the project"
+                               : reserved.Contains(siren.Id) ? "reserved on the server"
+                               : "outside 1–255";
+                    result.Warnings.Add($"Siren setting {siren.Id} ('{siren.Name}') is {reason} — renumbered to {newId}.");
 
-        // Siren groups: only those referenced by imported vehicles
-        var referenced = result.ImportedVehicles
-            .Select(v => v.CarVariation?.SirenSettings ?? 0).Where(id => id != 0).ToHashSet();
-        foreach (var siren in scan.CarCols.SirenSettings.Where(s => referenced.Contains(s.Id)))
-        {
-            var existing = project.CarCols.SirenSettings.FirstOrDefault(s => s.Id == siren.Id);
-            if (existing == null)
+                    foreach (var v in result.ImportedVehicles.Where(v => v.CarVariation?.SirenSettings == siren.Id))
+                        v.CarVariation!.SirenSettings = newId.Value;
+                    siren.Id = newId.Value;
+                }
+
+                taken.Add(siren.Id);
                 result.SirensToAdd.Add(siren);
-            else if (!SameSiren(existing, siren))
-                result.Warnings.Add(
-                    $"Siren setting {siren.Id} ('{siren.Name}') already exists in the project with different content — kept the existing one.");
+            }
+        }
+        catch
+        {
+            ReleasePending(result);
+            throw;
         }
 
         return result;
     }
 
+    private void ReleasePending(ImportResult result)
+    {
+        lock (_pendingFiles)
+            foreach (var f in result.StoredFiles)
+                _pendingFiles.Remove(f);
+    }
+
     public void ApplyImport(Project project, Resource resource, ImportResult result)
     {
+        ReleasePending(result);
         foreach (var vehicle in result.ImportedVehicles)
             resource.Vehicles.Add(vehicle);
 
@@ -278,14 +397,14 @@ public class ProjectService : IProjectService
     }
 
     /// <summary>Copies (and encrypts) a source file into vehicles/&lt;vehicleName&gt;/ and returns its relative path.</summary>
-    private string? StoreFile(Project project, string vehicleName, string? sourcePath)
+    private string? StoreFile(Project project, string vehicleName, string? sourcePath, string? targetFileName = null)
     {
         if (string.IsNullOrEmpty(sourcePath)) return null;
 
         var vehicleDir = Path.Combine(project.FolderPath!, VehiclesFolder, vehicleName);
         Directory.CreateDirectory(vehicleDir);
 
-        var fileName = Path.GetFileName(sourcePath);
+        var fileName = targetFileName ?? Path.GetFileName(sourcePath);
         File.WriteAllBytes(Path.Combine(vehicleDir, fileName), _encryption.EncryptLocal(File.ReadAllBytes(sourcePath)));
         return Path.Combine(vehicleName, fileName);
     }
@@ -316,10 +435,8 @@ public class ProjectService : IProjectService
             Directory.CreateDirectory(tempDir);
             var vehiclesSrcDir = Path.Combine(project.FolderPath, VehiclesFolder);
 
-            // Count total files for progress
-            var allFiles = Directory.Exists(vehiclesSrcDir)
-                ? Directory.GetFiles(vehiclesSrcDir, "*.*", SearchOption.AllDirectories)
-                : Array.Empty<string>();
+            // Only files that are referenced by a vehicle (no leftovers of deleted vehicles)
+            var allFiles = ReferencedFiles(project).Where(File.Exists).ToArray();
             var total = allFiles.Length + 1; // +1 for project file
             var current = 0;
 
@@ -425,40 +542,203 @@ public class ProjectService : IProjectService
         }
     }
 
-    public void RenameVehicle(Project project, Vehicle vehicle, string oldName, string newName)
+    /// <summary>
+    /// Renames a vehicle as one transaction: the vehicles/&lt;name&gt;/ folder, the stream files that
+    /// carry the name (old.yft, old_hi.yft, old+hi.ytd, old_bumf.yft, ...) and — if
+    /// <paramref name="updateMetaNames"/> — the meta names that refer to it. On any error all file
+    /// operations are rolled back and an <see cref="InvalidOperationException"/> is thrown; the
+    /// vehicle is left unchanged.
+    /// </summary>
+    public void RenameVehicle(Project project, Vehicle vehicle, string oldName, string newName, bool updateMetaNames = true)
     {
-        if (string.IsNullOrEmpty(project.FolderPath) || oldName == newName) return;
+        if (oldName == newName) return;
+        if (!VehicleNaming.IsValidName(newName, out var error))
+            throw new InvalidOperationException(error);
+        if (VehicleNaming.UsedNames(project, vehicle).Contains(newName))
+            throw new InvalidOperationException($"A vehicle named '{newName}' already exists in the project.");
 
-        var vehiclesDir = Path.Combine(project.FolderPath, VehiclesFolder);
-        var oldDir = Path.Combine(vehiclesDir, oldName);
-        var newDir = Path.Combine(vehiclesDir, newName);
-
-        if (Directory.Exists(oldDir) && !Directory.Exists(newDir))
-            Directory.Move(oldDir, newDir);
-
-        static string? UpdatePath(string? path, string oldN, string newN)
+        if (!string.IsNullOrEmpty(project.FolderPath))
         {
-            if (path == null) return null;
-            var sep = path.IndexOfAny(['/', '\\']);
-            if (sep < 0) return path;
-            var first = path[..sep];
-            return string.Equals(first, oldN, StringComparison.OrdinalIgnoreCase)
-                ? newN + path[sep..] : path;
+            var vehiclesDir = Path.Combine(project.FolderPath, VehiclesFolder);
+            var plan = PlanPaths(vehicle, oldName, newName);
+            var done = new List<(string from, string to)>();
+
+            try
+            {
+                var oldDir = Path.Combine(vehiclesDir, oldName);
+                var newDir = Path.Combine(vehiclesDir, newName);
+                if (Directory.Exists(oldDir))
+                {
+                    if (!oldName.Equals(newName, StringComparison.OrdinalIgnoreCase) && Directory.Exists(newDir))
+                        throw new InvalidOperationException($"Folder 'vehicles/{newName}' already exists.");
+                    MoveWithCase(oldDir, newDir, done, isDirectory: true);
+                }
+
+                foreach (var (oldRel, newRel) in plan.Values.Where(p => p.oldRel != p.newRel))
+                {
+                    // the folder was already moved, so the file is at <newFolder>/<oldFileName>
+                    var from = Path.Combine(vehiclesDir, Path.GetDirectoryName(newRel) ?? "", Path.GetFileName(oldRel));
+                    var to = Path.Combine(vehiclesDir, newRel);
+                    if (!File.Exists(from)) continue; // reported as missing file later
+                    if (File.Exists(to) && !from.Equals(to, StringComparison.OrdinalIgnoreCase))
+                        throw new InvalidOperationException($"File '{newRel}' already exists.");
+                    MoveWithCase(from, to, done, isDirectory: false);
+                }
+            }
+            catch (Exception ex)
+            {
+                Rollback(done);
+                throw ex as InvalidOperationException
+                      ?? new InvalidOperationException($"Rename failed: {ex.Message}", ex);
+            }
+
+            ApplyPlan(vehicle, plan);
         }
 
-        vehicle.YftRelativePath   = UpdatePath(vehicle.YftRelativePath,   oldName, newName);
-        vehicle.YftHiRelativePath = UpdatePath(vehicle.YftHiRelativePath, oldName, newName);
-        vehicle.YtdRelativePath   = UpdatePath(vehicle.YtdRelativePath,   oldName, newName);
-        vehicle.YtdHiRelativePath = UpdatePath(vehicle.YtdHiRelativePath, oldName, newName);
-        for (int i = 0; i < vehicle.ExtraFiles.Count; i++)
-            vehicle.ExtraFiles[i] = UpdatePath(vehicle.ExtraFiles[i], oldName, newName)!;
+        vehicle.Name = newName;
+        if (updateMetaNames)
+            VehicleNaming.ApplyNameToMetas(vehicle, oldName, newName);
     }
 
-    public Vehicle CloneVehicle(Vehicle vehicle)
+    /// <summary>
+    /// Creates an independent copy of the vehicle under <paramref name="newName"/>: stream files are
+    /// copied into vehicles/&lt;newName&gt;/ with renamed file names and all meta names are updated.
+    /// The clone is not added to any resource.
+    /// </summary>
+    public Vehicle CloneVehicle(Project project, Vehicle vehicle, string newName)
     {
+        if (!VehicleNaming.IsValidName(newName, out var error))
+            throw new InvalidOperationException(error);
+        if (VehicleNaming.UsedNames(project).Contains(newName))
+            throw new InvalidOperationException($"A vehicle named '{newName}' already exists in the project.");
+
         var json = JsonSerializer.Serialize(vehicle, ProjectJsonOptions.Default);
-        return JsonSerializer.Deserialize<Vehicle>(json, ProjectJsonOptions.Default)
-            ?? throw new InvalidOperationException("Vehicle clone failed.");
+        var clone = JsonSerializer.Deserialize<Vehicle>(json, ProjectJsonOptions.Default)
+                    ?? throw new InvalidOperationException("Vehicle clone failed.");
+
+        if (!string.IsNullOrEmpty(project.FolderPath))
+        {
+            var vehiclesDir = Path.Combine(project.FolderPath, VehiclesFolder);
+            var newDir = Path.Combine(vehiclesDir, newName);
+            if (Directory.Exists(newDir) && Directory.EnumerateFileSystemEntries(newDir).Any())
+                throw new InvalidOperationException($"Folder 'vehicles/{newName}' already exists.");
+
+            var plan = PlanPaths(clone, vehicle.Name, newName, forceFolder: true);
+            var copied = new List<string>();
+            try
+            {
+                Directory.CreateDirectory(newDir);
+                foreach (var (oldRel, newRel) in plan.Values)
+                {
+                    var from = Path.Combine(vehiclesDir, oldRel);
+                    if (!File.Exists(from)) continue;
+                    var to = Path.Combine(vehiclesDir, newRel);
+                    File.Copy(from, to, overwrite: false);
+                    copied.Add(to);
+                }
+            }
+            catch (Exception ex)
+            {
+                foreach (var f in copied) TryDelete(f);
+                throw new InvalidOperationException($"Clone failed: {ex.Message}", ex);
+            }
+
+            ApplyPlan(clone, plan);
+        }
+
+        var oldName = clone.Name;
+        clone.Name = newName;
+        VehicleNaming.ApplyNameToMetas(clone, oldName, newName);
+        return clone;
+    }
+
+    private enum Slot { Yft, YftHi, Ytd, YtdHi }
+
+    /// <summary>
+    /// Computes the new relative path for every file of the vehicle. Files in vehicles/&lt;oldName&gt;/
+    /// move to vehicles/&lt;newName&gt;/ (always, with <paramref name="forceFolder"/>), and file names
+    /// that carry the vehicle name are renamed.
+    /// </summary>
+    private static Dictionary<object, (string oldRel, string newRel)> PlanPaths(
+        Vehicle vehicle, string oldName, string newName, bool forceFolder = false)
+    {
+        var plan = new Dictionary<object, (string, string)>();
+
+        string Map(string rel)
+        {
+            var folder = Path.GetDirectoryName(rel) ?? "";
+            var file = Path.GetFileName(rel);
+            if (forceFolder || folder.Equals(oldName, StringComparison.OrdinalIgnoreCase))
+                folder = newName;
+            return Path.Combine(folder, VehicleNaming.RenameFileName(file, oldName, newName));
+        }
+
+        void Add(object key, string? rel)
+        {
+            if (!string.IsNullOrEmpty(rel)) plan[key] = (rel, Map(rel));
+        }
+
+        Add(Slot.Yft, vehicle.YftRelativePath);
+        Add(Slot.YftHi, vehicle.YftHiRelativePath);
+        Add(Slot.Ytd, vehicle.YtdRelativePath);
+        Add(Slot.YtdHi, vehicle.YtdHiRelativePath);
+        for (int i = 0; i < vehicle.ExtraFiles.Count; i++)
+            Add(i, vehicle.ExtraFiles[i]);
+        return plan;
+    }
+
+    private static void ApplyPlan(Vehicle vehicle, Dictionary<object, (string oldRel, string newRel)> plan)
+    {
+        string? Get(Slot s, string? current) => plan.TryGetValue(s, out var p) ? p.newRel : current;
+        vehicle.YftRelativePath = Get(Slot.Yft, vehicle.YftRelativePath);
+        vehicle.YftHiRelativePath = Get(Slot.YftHi, vehicle.YftHiRelativePath);
+        vehicle.YtdRelativePath = Get(Slot.Ytd, vehicle.YtdRelativePath);
+        vehicle.YtdHiRelativePath = Get(Slot.YtdHi, vehicle.YtdHiRelativePath);
+        for (int i = 0; i < vehicle.ExtraFiles.Count; i++)
+            if (plan.TryGetValue(i, out var p))
+                vehicle.ExtraFiles[i] = p.newRel;
+    }
+
+    /// <summary>Move that also works for case-only renames on case-insensitive file systems.</summary>
+    private static void MoveWithCase(string from, string to, List<(string from, string to)> done, bool isDirectory)
+    {
+        if (from == to) return;
+
+        void Move(string a, string b)
+        {
+            if (isDirectory) Directory.Move(a, b); else File.Move(a, b);
+            done.Add((a, b));
+        }
+
+        if (from.Equals(to, StringComparison.OrdinalIgnoreCase))
+        {
+            var tmp = from + ".renaming_" + Guid.NewGuid().ToString("N")[..8];
+            Move(from, tmp);
+            Move(tmp, to);
+        }
+        else
+        {
+            Move(from, to);
+        }
+    }
+
+    private static void Rollback(List<(string from, string to)> done)
+    {
+        for (int i = done.Count - 1; i >= 0; i--)
+        {
+            var (from, to) = done[i];
+            try
+            {
+                if (Directory.Exists(to)) Directory.Move(to, from);
+                else if (File.Exists(to)) File.Move(to, from);
+            }
+            catch { /* best effort */ }
+        }
+    }
+
+    private static void TryDelete(string file)
+    {
+        try { File.Delete(file); } catch { /* best effort */ }
     }
 
     // --- Recent Projects ---

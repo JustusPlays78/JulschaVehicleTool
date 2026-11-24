@@ -223,6 +223,7 @@ public partial class MainWindowViewModel : ObservableObject
                 if (_currentProject != null)
                 {
                     _sirenEditorVm.CarCols = _currentProject.CarCols;
+                    _sirenEditorVm.Project = _currentProject;
                     _sirenEditorVm.IsLoaded = true;
                     _sirenEditorVm.StatusMessage = $"Project siren pool — {_currentProject.CarCols.SirenSettings.Count} group(s)";
                     if (_sirenEditorVm.SelectedSiren == null && _currentProject.CarCols.SirenSettings.Count > 0)
@@ -624,11 +625,25 @@ public partial class MainWindowViewModel : ObservableObject
             case VehicleTreeNode vn:
                 if (trimmed == vn.Vehicle.Name) return;
                 var oldVehicleName = vn.Vehicle.Name;
-                vn.Vehicle.Name = trimmed;
+                try
+                {
+                    // Renames folder + files + meta names; throws (and rolls back) on conflicts
+                    if (_currentProject != null)
+                        _projectService.RenameVehicle(_currentProject, vn.Vehicle, oldVehicleName, trimmed);
+                    else
+                        vn.Vehicle.Name = trimmed;
+                }
+                catch (InvalidOperationException ex)
+                {
+                    vn.DisplayName = oldVehicleName;
+                    StatusText = $"Rename failed: {ex.Message}";
+                    System.Windows.MessageBox.Show(ex.Message, "Rename failed",
+                        System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                    return;
+                }
                 vn.DisplayName = trimmed;
-                if (_currentProject != null)
-                    _projectService.RenameVehicle(_currentProject, vn.Vehicle, oldVehicleName, trimmed);
                 _modelCache.Clear();
+                LoadVehicleIntoEditors(vn.Vehicle); // meta names changed
                 Log($"[Rename] Vehicle '{oldVehicleName}' → '{trimmed}'");
                 break;
             default:
@@ -722,7 +737,10 @@ public partial class MainWindowViewModel : ObservableObject
             return;
         }
 
-        var vehicle = VehicleDefaults.CreateDefault($"vehicle_{resource.Vehicles.Count + 1}");
+        var used = VehicleNaming.UsedNames(_currentProject!);
+        int n = 1;
+        while (used.Contains($"vehicle_{n}")) n++;
+        var vehicle = VehicleDefaults.CreateDefault($"vehicle_{n}");
         resource.Vehicles.Add(vehicle);
         _currentProject!.IsDirty = true;
         RebuildTree();
@@ -760,8 +778,17 @@ public partial class MainWindowViewModel : ObservableObject
         var resource = FindResourceForVehicle(vehicleNode.Vehicle);
         if (resource == null) return;
 
-        var clone = _projectService.CloneVehicle(vehicleNode.Vehicle);
-        clone.Name = GenerateUniqueName(vehicleNode.Vehicle.Name, resource);
+        Vehicle clone;
+        try
+        {
+            var name = VehicleNaming.UniqueName(_currentProject, vehicleNode.Vehicle.Name, "_copy");
+            clone = _projectService.CloneVehicle(_currentProject, vehicleNode.Vehicle, name);
+        }
+        catch (InvalidOperationException ex)
+        {
+            StatusText = $"Clone failed: {ex.Message}";
+            return;
+        }
 
         resource.Vehicles.Add(clone);
         _currentProject.IsDirty = true;
@@ -892,6 +919,7 @@ public partial class MainWindowViewModel : ObservableObject
             var scanner = new Core.Services.Import.VehicleImportScanner(_metaXmlService);
             var scan = await Task.Run(() => scanner.Scan(scanRoot));
             IsProgressVisible = false;
+            Core.Services.Import.ImportConflicts.Annotate(project, scan);
 
             if (scan.Vehicles.Count == 0)
             {
@@ -1386,16 +1414,6 @@ public partial class MainWindowViewModel : ObservableObject
     /// Returns a unique vehicle name within the given resource.
     /// Tries: baseName_copy, baseName_copy_2, baseName_copy_3, ...
     /// </summary>
-    private static string GenerateUniqueName(string baseName, Resource resource)
-    {
-        var existing = new HashSet<string>(resource.Vehicles.Select(v => v.Name), StringComparer.OrdinalIgnoreCase);
-        var candidate = baseName + "_copy";
-        if (!existing.Contains(candidate)) return candidate;
-        int n = 2;
-        while (existing.Contains(baseName + "_copy_" + n)) n++;
-        return baseName + "_copy_" + n;
-    }
-
     #endregion
 }
 

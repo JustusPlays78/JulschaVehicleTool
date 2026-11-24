@@ -16,6 +16,19 @@ public partial class SirenEditorViewModel : ObservableObject
     [ObservableProperty] private SirenSetting? _selectedSiren;
     [ObservableProperty] private SirenLight? _selectedLight;
 
+    /// <summary>Project whose siren pool is edited (null when a standalone carcols.meta is open).</summary>
+    [ObservableProperty] private Project? _project;
+
+    /// <summary>Lowest free siren ID (1–255), honouring the project's reserved server IDs.</summary>
+    private int? NextFreeId()
+    {
+        var used = Project != null ? SirenIds.Used(Project) : new HashSet<int>();
+        if (CarCols != null) used.UnionWith(CarCols.SirenSettings.Select(s => s.Id));
+        var id = SirenIds.NextFree(used);
+        if (id == null) StatusMessage = "No free siren ID left (1–255).";
+        return id;
+    }
+
     private string? _currentFilePath;
 
     [RelayCommand]
@@ -80,9 +93,7 @@ public partial class SirenEditorViewModel : ObservableObject
     private void AddSirenSetting()
     {
         if (CarCols == null) return;
-        var id = CarCols.SirenSettings.Count > 0
-            ? CarCols.SirenSettings.Max(s => s.Id) + 1
-            : 1000;
+        if (NextFreeId() is not int id) return;
         var setting = new SirenSetting { Id = id, Name = $"siren_{id}" };
         CarCols.SirenSettings.Add(setting);
         SelectedSiren = setting;
@@ -112,9 +123,10 @@ public partial class SirenEditorViewModel : ObservableObject
     {
         if (CarCols == null || SelectedSiren == null) return;
         var src = SelectedSiren;
+        if (NextFreeId() is not int newId) return;
         var clone = new SirenSetting
         {
-            Id = CarCols.SirenSettings.Max(s => s.Id) + 1,
+            Id = newId,
             Name = src.Name + "_copy",
             TimeMultiplier = src.TimeMultiplier,
             LightFalloffMax = src.LightFalloffMax,

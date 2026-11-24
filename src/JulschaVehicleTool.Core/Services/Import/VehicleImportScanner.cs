@@ -17,6 +17,12 @@ public class VehicleCandidate
 {
     public required string Name { get; init; }
 
+    /// <summary>
+    /// Name to import the vehicle as (null/empty = <see cref="Name"/>). Files and meta names are renamed
+    /// accordingly. Set by <see cref="ImportConflicts.Annotate"/> when the name is already taken.
+    /// </summary>
+    public string? ImportAs { get; set; }
+
     public string? Model { get; set; }
     public string? ModelHi { get; set; }
     public string? Texture { get; set; }

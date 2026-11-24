@@ -17,7 +17,7 @@ Project
         └── ...
 
 Vehicle (police1)
-└── Car Variation → SirenSettings = 1001   ← references group by ID
+└── Car Variation → SirenSettings = 42     ← references group by ID
 
 Vehicle (ambulance)
 └── Car Variation → SirenSettings = 1002
@@ -38,7 +38,7 @@ Each **Siren Group** (`<Item>` in carcols.meta) has:
 
 | Field | Description |
 |-------|-------------|
-| **ID** | Integer identifier. Referenced by vehicles via `<sirenSettings value="X"/>`. Must be unique. |
+| **ID** | Integer identifier **1–255**. Referenced by vehicles via `<sirenSettings value="X"/>`. Must be unique on the whole server. New groups get the lowest free ID. |
 | **Name** | Human-readable label (only used in the tool, not exported). |
 | **Time Multiplier** | Global speed of all flashiness sequences. 1.0 = normal. |
 | **Sequencer BPM** | BPM used when `SyncToBpm` is enabled on individual lights. |
@@ -93,7 +93,12 @@ When exporting a resource, the tool:
 The manifest gets `data_file 'CARCOLS_FILE' 'data/carcols.meta'` automatically.
 
 !!! warning "ID conflicts across resources"
-    Siren group IDs are **global** in GTA V. If two resources both use ID `1000`, whichever loads last wins. Use unique IDs per project (e.g. start at 1000, 2000, 3000 for different packs).
+    Siren group IDs are **global** in GTA V and stored as a byte in `carvariations.meta`, so only **1–255** work.
+    If two resources use the same ID, whichever loads last wins.
+
+    Enter the IDs your other resources already use in **IDs used on server** (toolbar of the siren pool,
+    e.g. `1-50, 99`). The tool never assigns them, renumbers imported groups that collide (and updates the
+    vehicles that use them), and blocks the export if a group still uses one.
 
 ---
 

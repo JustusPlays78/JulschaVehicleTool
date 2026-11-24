@@ -23,6 +23,13 @@ public partial class Project : ObservableObject
     [ObservableProperty]
     private bool _isDirty;
 
+    /// <summary>
+    /// Siren setting IDs already used by other resources on the server (e.g. "1-50, 99").
+    /// The tool never assigns these to new or imported siren settings.
+    /// </summary>
+    [ObservableProperty]
+    private string _reservedSirenIds = "";
+
     public ObservableCollection<Resource> Resources { get; set; } = new();
 
     /// <summary>

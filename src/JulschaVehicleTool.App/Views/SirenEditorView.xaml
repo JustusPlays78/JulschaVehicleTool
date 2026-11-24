@@ -8,6 +8,7 @@
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
         <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis" />
         <conv:ColorToBrushConverter x:Key="ColorToBrush" />
+        <conv:NotNullToBoolConverter x:Key="NotNullToBool" />
     </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
@@ -22,6 +23,13 @@
                     <Button Content="New" Command="{Binding NewFileCommand}" Padding="10,4" Margin="0,0,4,0" />
                     <Button Content="Load" Command="{Binding LoadFileCommand}" Padding="10,4" Margin="0,0,4,0" />
                     <Button Content="Save" Command="{Binding SaveFileCommand}" Padding="10,4" Margin="0,0,12,0" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" Margin="12,0,0,0"
+                            ToolTip="Siren IDs already used by other resources on your server, e.g. 1-50, 99. New and imported siren groups never get these IDs. Valid IDs are 1–255.">
+                    <TextBlock Text="IDs used on server:" VerticalAlignment="Center" FontSize="11" Margin="0,0,6,0"
+                               Foreground="{DynamicResource OnSurfaceVariantBrush}" />
+                    <TextBox Width="160" Text="{Binding Project.ReservedSirenIds, UpdateSourceTrigger=LostFocus}"
+                             IsEnabled="{Binding Project, Converter={StaticResource NotNullToBool}}" />
                 </StackPanel>
                 <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center"
                            Foreground="{DynamicResource OnSurfaceVariantBrush}" FontSize="11" />

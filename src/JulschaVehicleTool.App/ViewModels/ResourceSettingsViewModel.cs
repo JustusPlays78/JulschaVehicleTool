@@ -89,9 +89,9 @@ public partial class ResourceSettingsViewModel : ObservableObject
         }
 
         // Validate all vehicles before export
-        var validationIssues = Resource.Vehicles
-            .SelectMany(v => VehicleValidator.Validate(v)
-                .Select(i => $"[{v.Name}] {i.Severity}: {i.Message}"))
+        // Per-vehicle checks + checks across the whole project (duplicate names, file collisions, sirens)
+        var validationIssues = ProjectValidator.Validate(Project, Resource)
+            .Select(i => i.ToString())
             .ToList();
 
         if (validationIssues.Any(m => m.Contains("Error")))
