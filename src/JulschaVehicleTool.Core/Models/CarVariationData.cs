@@ -7,6 +7,12 @@ public partial class CarVariationData : ObservableObject
 {
     [ObservableProperty] private string _modelName = "";
 
+    /// <summary>
+    /// Original &lt;Item&gt; XML this entry was imported from (null for entries created in the tool).
+    /// On export only changed fields are patched into it; everything else is preserved 1:1.
+    /// </summary>
+    [ObservableProperty] private string? _sourceXml;
+
     public ObservableCollection<ColorCombination> Colors { get; } = new();
     public ObservableCollection<string> Kits { get; } = new();
     public ObservableCollection<PlateProbability> PlateProbabilities { get; } = new();

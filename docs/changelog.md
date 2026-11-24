@@ -21,6 +21,13 @@
 - Manifest uses `data_file 'CARCOLS_FILE' 'data/carcols.meta'` (exact path, not glob)
 
 ### Fixed
+- **Meta export preserves imported XML** — imported handling/vehicles/carvariations/carcols entries keep their original XML; only fields changed in the tool are patched. Fields the tool does not model (`lodDistances`, wheel scale, cameras, `strAdvancedFlags`, `type="NULL"` sub-handling, …) are no longer lost
+- String/enum fields (`handlingName`, `strModelFlags`, `AIHandling`, `type`, `flags`, `vehicleClass`, `swankness`, …) are written as text content instead of `value` attributes, as GTA expects
+- `rewards` / `cinematicPartCamera` are read and written as `<Item>` lists
+- New vehicles start from a complete vanilla-style `vehicles.meta` template and get a `vehshare` txd relationship
+- `txdRelationships` are imported per vehicle and exported again (and follow a renamed txdName)
+- Default/suggested values fixed: `VEHICLE_TYPE_*`, `SWANKNESS_0`–`5`, `VWT_HIEND`, `VPT_*_PLATES`
+- `vehicle_names.lua` uses the Game Name label as key and the new **Display Name** field as text
 - Rename vehicle now correctly renames the `vehicles/<name>/` folder on disk and updates all relative paths
 - XAML `Style` duplicate-set errors in MainWindow and SirenEditorView
 

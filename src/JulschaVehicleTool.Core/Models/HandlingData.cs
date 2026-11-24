@@ -9,6 +9,12 @@ public partial class HandlingData : ObservableObject
     // Identity
     [ObservableProperty] private string _handlingName = "";
 
+    /// <summary>
+    /// Original &lt;Item&gt; XML this entry was imported from (null for entries created in the tool).
+    /// On export only changed fields are patched into it; everything else is preserved 1:1.
+    /// </summary>
+    [ObservableProperty] private string? _sourceXml;
+
     // Physical
     [ObservableProperty] private float _fMass = 1500f;
     [ObservableProperty] private float _fInitialDragCoeff = 8.0f;
