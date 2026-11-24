@@ -1,0 +1,9 @@
+<Project>
+  <!-- Single source of truth for the app version. The release workflow reads it from here. -->
+  <PropertyGroup>
+    <Version>1.0.0</Version>
+    <Product>Julscha Vehicle Tool</Product>
+    <Company>Julscha</Company>
+    <Copyright>© 2026 Julscha</Copyright>
+  </PropertyGroup>
+</Project>

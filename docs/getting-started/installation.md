@@ -3,16 +3,15 @@
 ## Requirements
 
 - **Windows 10 or 11** (64-bit)
-- **.NET 8 Runtime** — [download here](https://dotnet.microsoft.com/en-us/download/dotnet/8.0)
+- No .NET installation needed — the release `.exe` is self-contained
 
 ---
 
 ## Option A — Download a Release (recommended)
 
-1. Go to the [Releases page](https://github.com/Schallenkammer/JulschaVehicleTool/releases)
-2. Download the latest `.zip`
-3. Extract it anywhere — no installer needed
-4. Run `JulschaVehicleTool.exe`
+1. Go to the [Releases page](https://code.julscha.de/Julscha/JudryVehicleTool/releases)
+2. Download `JulschaVehicleTool-<version>-win-x64.exe`
+3. Put it anywhere and run it — no installer, no extraction needed
 
 !!! note "Windows SmartScreen"
     On first launch Windows may show a SmartScreen warning. Click **More info → Run anyway**.

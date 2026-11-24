@@ -1,0 +1,155 @@
+# Manual release: builds the Windows exe and publishes it as a release on
+# Forgejo AND GitHub (tag v<version> on the selected commit).
+#
+# Run it from Actions → release → "Run workflow".
+#   version: leave empty to use <Version> from Directory.Build.props
+#
+# Secrets:
+#   GH_SYNC_TOKEN           GitHub token with "Contents: Read and write" (same as the sync)
+#   FORGEJO_RELEASE_TOKEN   optional; only needed if the automatic token may not create releases
+#
+# Release notes are taken from the matching "## <version>" section of docs/changelog.md.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (empty = from Directory.Build.props)'
+        required: false
+        default: ''
+      draft:
+        description: 'Create as draft'
+        type: boolean
+        required: false
+        default: false
+
+env:
+  GITHUB_REPO: JustusPlays78/JulschaVehicleTool
+
+jobs:
+  release:
+    runs-on: docker
+    container:
+      image: mcr.microsoft.com/dotnet/sdk:8.0
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+    steps:
+      - name: Checkout
+        env:
+          FORGEJO_TOKEN: ${{ github.token }}
+          SERVER_URL: ${{ github.server_url }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          apt-get update -qq && apt-get install -y -qq jq >/dev/null
+          host=${SERVER_URL#https://}
+          git init -q src && cd src
+          git remote add origin "https://oauth2:${FORGEJO_TOKEN}@${host}/${REPO}.git"
+          git fetch -q --depth 1 origin "$SHA"
+          git checkout -q FETCH_HEAD
+
+      - name: Determine version
+        working-directory: src
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          FORGEJO_TOKEN: ${{ secrets.FORGEJO_RELEASE_TOKEN || github.token }}
+          SERVER_URL: ${{ github.server_url }}
+          REPO: ${{ github.repository }}
+        run: |
+          version="$INPUT_VERSION"
+          if [ -z "$version" ]; then
+            version=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props | head -1)
+          fi
+          if ! echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error::Invalid version '$version'"; exit 1
+          fi
+          tag="v$version"
+
+          status=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: token $FORGEJO_TOKEN" \
+            "$SERVER_URL/api/v1/repos/$REPO/releases/tags/$tag")
+          if [ "$status" = "200" ]; then
+            echo "::error::Release $tag already exists on Forgejo. Bump the version."; exit 1
+          fi
+
+          # Release notes from docs/changelog.md ("## 1.0.0 ..." up to the next "## " or "---")
+          awk -v v="$version" '
+            $0 ~ "^## " v "([^0-9.]|$)" { on=1; next }
+            on && (/^## / || /^---/) { exit }
+            on { print }
+          ' docs/changelog.md > ../notes.md
+          [ -s ../notes.md ] || echo "Release $tag" > ../notes.md
+
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+          echo "Releasing $tag"
+
+      - name: Build and test
+        working-directory: src
+        run: |
+          dotnet build JulschaVehicleTool.sln -c Release -p:EnableWindowsTargeting=true -p:Version=$VERSION
+          dotnet test src/JulschaVehicleTool.Tests -c Release --no-build
+
+      - name: Publish exe
+        working-directory: src
+        run: |
+          bash .forgejo/scripts/publish-exe.sh ../publish "$VERSION"
+          mkdir -p ../dist
+          asset="JulschaVehicleTool-$VERSION-win-x64.exe"
+          cp ../publish/JulschaVehicleTool.App.exe "../dist/$asset"
+          (cd ../dist && sha256sum "$asset" > "$asset.sha256")
+          ls -la ../dist
+
+      - name: Release on Forgejo
+        env:
+          FORGEJO_TOKEN: ${{ secrets.FORGEJO_RELEASE_TOKEN || github.token }}
+          SERVER_URL: ${{ github.server_url }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          DRAFT: ${{ inputs.draft }}
+        run: |
+          api="$SERVER_URL/api/v1/repos/$REPO"
+          body=$(jq -n --arg tag "$TAG" --arg sha "$SHA" --arg name "$TAG" \
+                       --rawfile notes notes.md --argjson draft "${DRAFT:-false}" \
+                       '{tag_name:$tag, target_commitish:$sha, name:$name, body:$notes, draft:$draft}')
+          resp=$(curl -sS --fail-with-body -X POST -H "Authorization: token $FORGEJO_TOKEN" \
+                 -H 'Content-Type: application/json' -d "$body" "$api/releases")
+          id=$(echo "$resp" | jq -r .id)
+          echo "Forgejo release id: $id"
+
+          for f in dist/*; do
+            echo "Uploading $(basename "$f")"
+            curl -sS --fail-with-body -X POST -H "Authorization: token $FORGEJO_TOKEN" \
+              -F "attachment=@$f" "$api/releases/$id/assets?name=$(basename "$f")" > /dev/null
+          done
+          echo "Forgejo: $(echo "$resp" | jq -r .html_url)"
+
+      - name: Release on GitHub
+        env:
+          GH_TOKEN: ${{ secrets.GH_SYNC_TOKEN }}
+          SHA: ${{ github.sha }}
+          DRAFT: ${{ inputs.draft }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then echo "::error::Secret GH_SYNC_TOKEN is not set."; exit 1; fi
+          api="https://api.github.com/repos/$GITHUB_REPO"
+          hdr=(-H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28")
+
+          # The commit must exist on GitHub; the sync normally pushes it within seconds.
+          for i in 1 2 3 4 5 6; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "${hdr[@]}" "$api/commits/$SHA")
+            [ "$code" = "200" ] && break
+            echo "Commit not on GitHub yet ($code), waiting..."; sleep 20
+          done
+          [ "$code" = "200" ] || { echo "::error::Commit $SHA not found on GitHub - is the sync running?"; exit 1; }
+
+          body=$(jq -n --arg tag "$TAG" --arg sha "$SHA" --arg name "$TAG" \
+                       --rawfile notes notes.md --argjson draft "${DRAFT:-false}" \
+                       '{tag_name:$tag, target_commitish:$sha, name:$name, body:$notes, draft:$draft}')
+          resp=$(curl -sS --fail-with-body -X POST "${hdr[@]}" -d "$body" "$api/releases")
+          upload=$(echo "$resp" | jq -r .upload_url | sed 's/{.*}//')
+
+          for f in dist/*; do
+            echo "Uploading $(basename "$f")"
+            curl -sS --fail-with-body -X POST "${hdr[@]}" -H "Content-Type: application/octet-stream" \
+              --data-binary "@$f" "$upload?name=$(basename "$f")" > /dev/null
+          done
+          echo "GitHub: $(echo "$resp" | jq -r .html_url)"

@@ -1,0 +1,42 @@
+# Build + test on every push and pull request.
+# The WPF app is cross-compiled for Windows on the Linux runner (EnableWindowsTargeting);
+# only the Core tests can run here.
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: docker
+    container:
+      image: mcr.microsoft.com/dotnet/sdk:8.0
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+    steps:
+      - name: Checkout
+        env:
+          FORGEJO_TOKEN: ${{ github.token }}
+          SERVER_URL: ${{ github.server_url }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          host=${SERVER_URL#https://}
+          git init -q src && cd src
+          git remote add origin "https://oauth2:${FORGEJO_TOKEN}@${host}/${REPO}.git"
+          git fetch -q --depth 1 origin "$SHA"
+          git checkout -q FETCH_HEAD
+
+      - name: Build
+        working-directory: src
+        run: dotnet build JulschaVehicleTool.sln -c Release -p:EnableWindowsTargeting=true
+
+      - name: Test
+        working-directory: src
+        run: dotnet test src/JulschaVehicleTool.Tests -c Release --no-build --verbosity normal
+
+      - name: Publish Windows exe (smoke test)
+        working-directory: src
+        run: bash .forgejo/scripts/publish-exe.sh out
