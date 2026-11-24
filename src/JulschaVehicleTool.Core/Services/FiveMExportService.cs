@@ -26,6 +26,7 @@ public class FiveMExportService
         }
 
         var outputDir = options.OutputPath;
+        CleanGeneratedOutput(outputDir, result);
         Directory.CreateDirectory(outputDir);
         Directory.CreateDirectory(Path.Combine(outputDir, "stream"));
         Directory.CreateDirectory(Path.Combine(outputDir, "data"));
@@ -47,8 +48,16 @@ public class FiveMExportService
             GenerateMetaFilesFromInline(vehicle, outputDir, result, usedFolderNames, metaXmlService);
         }
 
-        // Generate a single project-level carcols.meta filtered to IDs referenced by this resource
+        // Generate a single project-level carcols.meta filtered to what this resource references
         bool hasCarCols = GenerateProjectCarColsFile(project, resource, outputDir, metaXmlService);
+
+        // Pass-through metas (vehiclelayouts.meta, ...)
+        foreach (var meta in resource.ExtraMetas)
+        {
+            var dir = Path.Combine(outputDir, "data", "extra");
+            Directory.CreateDirectory(dir);
+            File.WriteAllText(Path.Combine(dir, SanitizeFileName(meta.FileName)), meta.Content);
+        }
 
         progress?.Report((++current, total, "Generating fxmanifest.lua..."));
         GenerateResourceManifest(resource, outputDir, hasCarCols);
@@ -58,6 +67,9 @@ public class FiveMExportService
             progress?.Report((++current, total, "Generating vehicle_names.lua..."));
             GenerateResourceVehicleNames(resource, outputDir);
         }
+
+        File.WriteAllText(Path.Combine(outputDir, ExportMarkerFile),
+            "Exported by Julscha Vehicle Tool. stream/, data/, fxmanifest.lua and vehicle_names.lua are replaced on every export.\n");
 
         result.Success = true;
         result.OutputPath = outputDir;
@@ -125,24 +137,64 @@ public class FiveMExportService
     /// Generates a single data/carcols.meta for the resource, containing only the siren groups
     /// referenced by vehicles in this resource.  Returns true if the file was written.
     /// </summary>
+    /// <summary>
+    /// Removes what a previous export generated (stream/, data/, fxmanifest.lua, vehicle_names.lua)
+    /// so files of removed vehicles don't linger. Anything else in the folder (own scripts, ...) is kept.
+    /// </summary>
+    private const string ExportMarkerFile = ".julschavehicletool";
+
+    private static void CleanGeneratedOutput(string outputDir, ExportResult result)
+    {
+        if (!Directory.Exists(outputDir)) return;
+
+        // Only clean folders this tool exported before — never delete someone else's stream/ or data/
+        if (!File.Exists(Path.Combine(outputDir, ExportMarkerFile)))
+        {
+            if (Directory.Exists(Path.Combine(outputDir, "stream")) || Directory.Exists(Path.Combine(outputDir, "data")))
+                result.Warnings.Add("The output folder already contains stream/ or data/ that were not created by this tool — " +
+                                    "old files were not removed. Export into an empty folder to be safe.");
+            return;
+        }
+
+        foreach (var dir in new[] { "stream", "data" })
+        {
+            var path = Path.Combine(outputDir, dir);
+            if (Directory.Exists(path)) Directory.Delete(path, true);
+        }
+        foreach (var file in new[] { "fxmanifest.lua", "vehicle_names.lua" })
+        {
+            var path = Path.Combine(outputDir, file);
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    /// The part of the project's carcols pool that the given vehicles use:
+    /// siren groups (sirenSettings), mod kits (kits by kitName) and light settings (lightSettings).
+    /// </summary>
+    public static CarColsData FilterCarCols(Project project, IEnumerable<Vehicle> vehicles)
+    {
+        var list = vehicles.ToList();
+        var sirenIds = list.Select(v => v.CarVariation?.SirenSettings ?? 0).Where(id => id != 0).ToHashSet();
+        var kitNames = list.SelectMany(v => v.CarVariation?.Kits ?? []).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var lightIds = list.Where(v => v.CarVariation != null).Select(v => v.CarVariation!.LightSettings).ToHashSet();
+
+        var filtered = new CarColsData();
+        foreach (var s in project.CarCols.SirenSettings.Where(s => sirenIds.Contains(s.Id)))
+            filtered.SirenSettings.Add(s);
+        foreach (var k in project.CarCols.Kits.Where(k => kitNames.Contains(k.Name)))
+            filtered.Kits.Add(k);
+        foreach (var l in project.CarCols.Lights.Where(l => lightIds.Contains(l.Id)))
+            filtered.Lights.Add(l);
+        return filtered;
+    }
+
     private static bool GenerateProjectCarColsFile(Project project, Resource resource,
         string outputDir, MetaXmlService metaXmlService)
     {
-        if (project.CarCols.SirenSettings.Count == 0) return false;
-
-        // Collect all siren IDs referenced by vehicles in this resource
-        var referencedIds = resource.Vehicles
-            .Select(v => v.CarVariation?.SirenSettings ?? 0)
-            .Where(id => id != 0)
-            .ToHashSet();
-
-        if (referencedIds.Count == 0) return false;
-
-        var filtered = new CarColsData();
-        foreach (var s in project.CarCols.SirenSettings.Where(s => referencedIds.Contains(s.Id)))
-            filtered.SirenSettings.Add(s);
-
-        if (filtered.SirenSettings.Count == 0) return false;
+        var filtered = FilterCarCols(project, resource.Vehicles);
+        if (filtered.SirenSettings.Count == 0 && filtered.Kits.Count == 0 && filtered.Lights.Count == 0)
+            return false;
 
         metaXmlService.SaveCarCols(filtered, Path.Combine(outputDir, "data", "carcols.meta"));
         return true;
@@ -157,8 +209,9 @@ public class FiveMExportService
 
         if (!string.IsNullOrWhiteSpace(resource.Author))
             sb.AppendLine($"author '{EscapeLua(resource.Author)}'");
-        if (!string.IsNullOrWhiteSpace(resource.Name))
-            sb.AppendLine($"description '{EscapeLua(resource.Name)}'");
+        var description = string.IsNullOrWhiteSpace(resource.Description) ? resource.Name : resource.Description;
+        if (!string.IsNullOrWhiteSpace(description))
+            sb.AppendLine($"description '{EscapeLua(description)}'");
         if (!string.IsNullOrWhiteSpace(resource.Version))
             sb.AppendLine($"version '{EscapeLua(resource.Version)}'");
 
@@ -177,14 +230,17 @@ public class FiveMExportService
             if (v.VehicleMeta != null) hasVehicles = true;
         }
 
+        // Order matters: layouts before vehicles, carcols before carvariations
+        foreach (var meta in resource.ExtraMetas)
+            sb.AppendLine($"data_file '{meta.DataFileType}' 'data/extra/{SanitizeFileName(meta.FileName)}'");
         if (hasHandling)
             sb.AppendLine("data_file 'HANDLING_FILE'           'data/**/handling.meta'");
+        if (hasVehicles)
+            sb.AppendLine("data_file 'VEHICLE_METADATA_FILE'   'data/**/vehicles.meta'");
         if (hasProjectCarCols)
             sb.AppendLine("data_file 'CARCOLS_FILE'            'data/carcols.meta'");
         if (hasCarVariations)
             sb.AppendLine("data_file 'VEHICLE_VARIATION_FILE'  'data/**/carvariations.meta'");
-        if (hasVehicles)
-            sb.AppendLine("data_file 'VEHICLE_METADATA_FILE'   'data/**/vehicles.meta'");
 
         if (resource.IncludeVehicleNames)
         {
@@ -223,7 +279,7 @@ public class FiveMExportService
     /// <summary>
     /// Exports a single vehicle's meta data to an individual XML file.
     /// </summary>
-    public void ExportSingleMeta(Vehicle vehicle, string metaType, string filePath, MetaXmlService metaXmlService)
+    public void ExportSingleMeta(Project project, Vehicle vehicle, string metaType, string filePath, MetaXmlService metaXmlService)
     {
         switch (metaType.ToLowerInvariant())
         {
@@ -237,10 +293,8 @@ public class FiveMExportService
                 metaXmlService.SaveCarVariations(vehicle.CarVariation, filePath);
                 break;
             case "carcols":
-                // carcols is project-level — caller should export via GenerateProjectCarColsFile
-                // kept for direct single-meta export fallback
-                if (vehicle.CarCols != null)
-                    metaXmlService.SaveCarCols(vehicle.CarCols, filePath);
+                // carcols is project-level: export the sirens/kits/lights this vehicle uses
+                metaXmlService.SaveCarCols(FilterCarCols(project, [vehicle]), filePath);
                 break;
         }
     }
@@ -251,6 +305,13 @@ public class FiveMExportService
         var sanitized = new string(name.Select(c => invalid.Contains(c) || c == ' ' ? '_' : c).ToArray());
         sanitized = Regex.Replace(sanitized.ToLowerInvariant(), "_+", "_").Trim('_');
         return string.IsNullOrWhiteSpace(sanitized) ? "vehicle" : sanitized;
+    }
+
+    private static string SanitizeFileName(string name)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var cleaned = new string(name.Select(c => invalid.Contains(c) || c is '/' or '\\' ? '_' : c).ToArray());
+        return string.IsNullOrWhiteSpace(cleaned) ? "extra.meta" : cleaned;
     }
 
     private static string EscapeLua(string value)

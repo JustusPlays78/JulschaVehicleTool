@@ -411,7 +411,7 @@ public class MetaXmlService
         var doc = XDocument.Load(filePath);
         var data = new CarColsData();
 
-        var sirens = doc.Descendants("Sirens").FirstOrDefault();
+        var sirens = doc.Root?.Element("Sirens") ?? doc.Descendants("Sirens").FirstOrDefault();
         if (sirens != null)
         {
             foreach (var sirenItem in sirens.Elements("Item"))
@@ -419,6 +419,16 @@ public class MetaXmlService
                 data.SirenSettings.Add(ParseSirenSetting(sirenItem));
             }
         }
+
+        var kits = doc.Root?.Element("Kits");
+        if (kits != null)
+            foreach (var item in kits.Elements("Item"))
+                data.Kits.Add(new CarColsEntry { Id = GetInt(item, "id"), Name = GetText(item, "kitName"), Xml = item.ToString() });
+
+        var lights = doc.Root?.Element("Lights");
+        if (lights != null)
+            foreach (var item in lights.Elements("Item"))
+                data.Lights.Add(new CarColsEntry { Id = GetInt(item, "id"), Name = GetText(item, "name"), Xml = item.ToString() });
 
         return data;
     }
@@ -590,8 +600,8 @@ public class MetaXmlService
 
         var doc = new XDocument(new XDeclaration("1.0", "UTF-8", null),
             new XElement("CVehicleModelInfoVarGlobal",
-                new XElement("Kits"),
-                new XElement("Lights"),
+                new XElement("Kits", data.Kits.Select(k => XElement.Parse(k.Xml))),
+                new XElement("Lights", data.Lights.Select(l => XElement.Parse(l.Xml))),
                 sirensEl
             )
         );

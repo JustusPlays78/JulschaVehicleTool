@@ -356,6 +356,51 @@ public class ProjectService : IProjectService
                 taken.Add(siren.Id);
                 result.SirensToAdd.Add(siren);
             }
+
+            // Mod kits (referenced by kitName) and light settings (referenced by id)
+            var kitNames = result.ImportedVehicles.SelectMany(v => v.CarVariation?.Kits ?? [])
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var kit in scan.CarCols.Kits.Where(k => kitNames.Contains(k.Name)))
+            {
+                var sameName = project.CarCols.Kits.FirstOrDefault(k => k.Name.Equals(kit.Name, StringComparison.OrdinalIgnoreCase));
+                var sameId = project.CarCols.Kits.FirstOrDefault(k => k.Id == kit.Id);
+                if (sameName != null)
+                {
+                    if (!SameXml(sameName.Xml, kit.Xml))
+                        result.Warnings.Add($"Mod kit '{kit.Name}' already exists in the project with different content — kept the existing one.");
+                    continue;
+                }
+                if (sameId != null)
+                {
+                    result.Warnings.Add($"Mod kit '{kit.Name}' uses ID {kit.Id}, which is already used by '{sameId.Name}' — not imported. Change the kit ID in the carcols.meta and import again.");
+                    continue;
+                }
+                result.KitsToAdd.Add(kit);
+            }
+
+            var lightIds = result.ImportedVehicles.Select(v => v.CarVariation?.LightSettings ?? -1).ToHashSet();
+            foreach (var light in scan.CarCols.Lights.Where(l => lightIds.Contains(l.Id)))
+            {
+                var existing = project.CarCols.Lights.FirstOrDefault(l => l.Id == light.Id);
+                if (existing == null)
+                    result.LightsToAdd.Add(light);
+                else if (!SameXml(existing.Xml, light.Xml))
+                    result.Warnings.Add($"Light setting {light.Id} already exists in the project with different content — kept the existing one.");
+            }
+
+            // Pass-through metas (vehiclelayouts.meta, ...) of the pack
+            if (result.ImportedVehicles.Count > 0)
+            {
+                foreach (var meta in scan.MetaFiles.Where(m => m.Kind == MetaKind.Passthrough))
+                {
+                    result.ExtraMetasToAdd.Add(new PassthroughMeta
+                    {
+                        FileName = Path.GetFileName(meta.Path),
+                        DataFileType = meta.DataFileType!,
+                        Content = File.ReadAllText(meta.Path),
+                    });
+                }
+            }
         }
         catch
         {
@@ -386,8 +431,44 @@ public class ProjectService : IProjectService
             result.ImportedSirenIds.Add(siren.Id);
         }
 
+        foreach (var kit in result.KitsToAdd)
+            if (project.CarCols.Kits.All(k => k.Id != kit.Id && !k.Name.Equals(kit.Name, StringComparison.OrdinalIgnoreCase)))
+                project.CarCols.Kits.Add(kit);
+
+        foreach (var light in result.LightsToAdd)
+            if (project.CarCols.Lights.All(l => l.Id != light.Id))
+                project.CarCols.Lights.Add(light);
+
+        foreach (var meta in result.ExtraMetasToAdd)
+        {
+            var same = resource.ExtraMetas.FirstOrDefault(m => m.FileName.Equals(meta.FileName, StringComparison.OrdinalIgnoreCase));
+            if (same != null && SameXml(same.Content, meta.Content)) continue;
+            if (same != null)
+            {
+                var stem = Path.GetFileNameWithoutExtension(meta.FileName);
+                var used = resource.ExtraMetas.Select(m => m.FileName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                int n = 2;
+                while (used.Contains($"{stem}_{n}.meta")) n++;
+                meta.FileName = $"{stem}_{n}.meta";
+            }
+            resource.ExtraMetas.Add(meta);
+        }
+
         if (result.ImportedVehicles.Count > 0 || result.ImportedSirenIds.Count > 0)
             project.IsDirty = true;
+    }
+
+    private static bool SameXml(string a, string b)
+    {
+        try
+        {
+            return System.Xml.Linq.XNode.DeepEquals(
+                System.Xml.Linq.XDocument.Parse(a).Root, System.Xml.Linq.XDocument.Parse(b).Root);
+        }
+        catch
+        {
+            return a == b;
+        }
     }
 
     private static bool SameSiren(SirenSetting a, SirenSetting b)

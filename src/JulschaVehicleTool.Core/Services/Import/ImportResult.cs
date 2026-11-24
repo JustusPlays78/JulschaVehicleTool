@@ -6,6 +6,9 @@ public class ImportResult
 {
     public List<Vehicle> ImportedVehicles { get; } = new();
     public List<SirenSetting> SirensToAdd { get; } = new();
+    public List<CarColsEntry> KitsToAdd { get; } = new();
+    public List<CarColsEntry> LightsToAdd { get; } = new();
+    public List<PassthroughMeta> ExtraMetasToAdd { get; } = new();
     public List<int> ImportedSirenIds { get; } = new();
     public List<string> Warnings { get; } = new();
 

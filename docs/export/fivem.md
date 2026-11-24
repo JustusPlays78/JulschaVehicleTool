@@ -24,9 +24,12 @@ police_pack/
 │   ├── police1.yft         ← Decrypted, ready for streaming
 │   ├── police1_hi.yft
 │   ├── police1.ytd
+│   ├── police1_bumf.yft    ← Mod kit parts and extra texture dictionaries
 │   └── police2.yft
 ├── data/
-│   ├── carcols.meta        ← Shared siren pool (filtered to this resource)
+│   ├── carcols.meta        ← Sirens, mod kits and lights used by this resource
+│   ├── extra/
+│   │   └── vehiclelayouts.meta  ← Imported pass-through metas (unchanged)
 │   ├── police1/
 │   │   ├── handling.meta
 │   │   ├── vehicles.meta
@@ -35,8 +38,15 @@ police_pack/
 │       ├── handling.meta
 │       ├── vehicles.meta
 │       └── carvariations.meta
-└── vehicle_names.lua       ← Display names (optional, if enabled)
+├── vehicle_names.lua       ← Display names (optional, if enabled)
+└── .julschavehicletool     ← Marker: this folder was exported by the tool
 ```
+
+!!! info "Re-exporting"
+    On every export `stream/`, `data/`, `fxmanifest.lua` and `vehicle_names.lua` are replaced, so files of
+    removed vehicles disappear. Other files in the folder (your own scripts) are kept. This only happens if
+    the folder contains the `.julschavehicletool` marker from a previous export — a folder with someone
+    else's `stream/`/`data/` is never cleaned (you get a warning instead).
 
 ---
 
@@ -51,17 +61,18 @@ fx_version 'cerulean'
 game { 'gta5' }
 
 author 'YourName'
-description 'police_pack'
+description 'LSPD vehicle pack'   -- resource description, or the name if empty
 version '1.0.0'
 
 files {
     'data/**/*.meta'
 }
 
+data_file 'VEHICLE_LAYOUTS_FILE'   'data/extra/vehiclelayouts.meta'
 data_file 'HANDLING_FILE'          'data/**/handling.meta'
+data_file 'VEHICLE_METADATA_FILE'  'data/**/vehicles.meta'
 data_file 'CARCOLS_FILE'           'data/carcols.meta'
 data_file 'VEHICLE_VARIATION_FILE' 'data/**/carvariations.meta'
-data_file 'VEHICLE_METADATA_FILE'  'data/**/vehicles.meta'
 
 client_script 'vehicle_names.lua'  -- only if enabled
 ```
@@ -70,11 +81,14 @@ Entries are only included if data actually exists (e.g. `CARCOLS_FILE` is omitte
 
 ### `data/carcols.meta`
 
-A single shared siren file for the entire resource. The tool automatically:
+A single shared file for the entire resource. The tool automatically:
 
-1. Looks at which siren group IDs are referenced by vehicles in this resource
-2. Filters the project's siren pool to those IDs only
+1. Looks at what the vehicles in this resource reference in `carvariations.meta`:
+   siren groups (`sirenSettings`), mod kits (`kits`, by kit name) and light settings (`lightSettings`)
+2. Takes exactly those entries from the project pool
 3. Writes one combined `carcols.meta`
+
+Mod kits and light settings come from imported `carcols.meta` files and are written back unchanged.
 
 This matches the correct FiveM behavior where `carcols.meta` is per-resource, not per-vehicle.
 

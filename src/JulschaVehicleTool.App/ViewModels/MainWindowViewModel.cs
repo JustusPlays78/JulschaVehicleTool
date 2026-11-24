@@ -1181,7 +1181,8 @@ public partial class MainWindowViewModel : ObservableObject
 
         try
         {
-            _exportService.ExportSingleMeta(vehicleNode.Vehicle, metaType, dialog.FileName, _metaXmlService);
+            if (_currentProject == null) return;
+            _exportService.ExportSingleMeta(_currentProject, vehicleNode.Vehicle, metaType, dialog.FileName, _metaXmlService);
             StatusText = $"Exported {metaType}.meta";
         }
         catch (Exception ex)
