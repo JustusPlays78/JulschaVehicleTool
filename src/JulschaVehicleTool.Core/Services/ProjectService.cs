@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using JulschaVehicleTool.Core.Models;
 using JulschaVehicleTool.Core.Serialization;
+using JulschaVehicleTool.Core.Services.Import;
 
 namespace JulschaVehicleTool.Core.Services;
 
@@ -16,6 +17,23 @@ public interface IProjectService
     void ImportVehicleFiles(Project project, Vehicle vehicle, string[] sourcePaths);
     void ImportVehicleFolder(Project project, Resource resource, string folderPath,
         IProgress<(int current, int total, string message)>? progress = null);
+
+    /// <summary>
+    /// Imports the confirmed vehicles of a scan into the resource: copies (and encrypts) all
+    /// stream files, applies the meta entries and merges siren groups into the project pool.
+    /// </summary>
+    ImportResult ImportScan(Project project, Resource resource, ImportScan scan,
+        IProgress<(int current, int total, string message)>? progress = null);
+
+    /// <summary>
+    /// First half of <see cref="ImportScan"/>: copies files and builds the vehicles without touching
+    /// the project's collections. Safe to run on a background thread.
+    /// </summary>
+    ImportResult PrepareImport(Project project, ImportScan scan,
+        IProgress<(int current, int total, string message)>? progress = null);
+
+    /// <summary>Second half of <see cref="ImportScan"/>: adds the prepared vehicles and sirens (UI thread).</summary>
+    void ApplyImport(Project project, Resource resource, ImportResult result);
 
     byte[] DecryptVehicleFile(Project project, Vehicle vehicle, string relativePath);
 
@@ -39,10 +57,6 @@ public class ProjectService : IProjectService
     private const string RecentProjectsFileName = "recent_projects.json";
     private const int MaxRecentProjects = 10;
 
-    private static readonly string[] KnownYftExtensions = [".yft"];
-    private static readonly string[] KnownYtdExtensions = [".ytd"];
-    private static readonly string[] KnownMetaFiles =
-        ["handling.meta", "vehicles.meta", "carvariations.meta", "carcols.meta", "vehiclelayouts.meta"];
 
     public ProjectService(IEncryptionService encryption)
     {
@@ -172,55 +186,108 @@ public class ProjectService : IProjectService
     public void ImportVehicleFolder(Project project, Resource resource, string folderPath,
         IProgress<(int current, int total, string message)>? progress = null)
     {
+        var scan = new VehicleImportScanner(new MetaXmlService()).Scan(folderPath);
+        ImportScan(project, resource, scan, progress);
+    }
+
+    public ImportResult ImportScan(Project project, Resource resource, ImportScan scan,
+        IProgress<(int current, int total, string message)>? progress = null)
+    {
+        var result = PrepareImport(project, scan, progress);
+        ApplyImport(project, resource, result);
+        return result;
+    }
+
+    public ImportResult PrepareImport(Project project, ImportScan scan,
+        IProgress<(int current, int total, string message)>? progress = null)
+    {
         if (string.IsNullOrEmpty(project.FolderPath))
             throw new InvalidOperationException("Project must be saved before importing files.");
 
-        var files = Directory.GetFiles(folderPath, "*.*", SearchOption.TopDirectoryOnly);
-        var yftFiles = files.Where(f => f.EndsWith(".yft", StringComparison.OrdinalIgnoreCase)).ToArray();
+        var result = new ImportResult();
+        var existingNames = new HashSet<string>(
+            project.Resources.SelectMany(r => r.Vehicles).Select(v => v.Name), StringComparer.OrdinalIgnoreCase);
 
-        // Determine vehicle names from YFT files (without _hi suffix)
-        var vehicleNames = yftFiles
-            .Select(f => Path.GetFileNameWithoutExtension(f))
-            .Where(n => !n.EndsWith("_hi", StringComparison.OrdinalIgnoreCase))
-            .Distinct()
-            .ToList();
-
-        var total = vehicleNames.Count;
+        var selected = scan.Vehicles.Where(v => v.Include).ToList();
         var current = 0;
 
-        foreach (var name in vehicleNames)
+        foreach (var candidate in selected)
         {
-            current++;
-            progress?.Report((current, total, $"Importing {name}..."));
+            progress?.Report((++current, selected.Count, $"Importing {candidate.Name}..."));
 
-            // Create vehicle with defaults
-            var vehicle = VehicleDefaults.CreateDefault(name);
-
-            // Find matching files for this vehicle
-            var matchingFiles = files.Where(f =>
+            if (!existingNames.Add(candidate.Name))
             {
-                var fn = Path.GetFileNameWithoutExtension(f).ToLowerInvariant();
-                var baseName = name.ToLowerInvariant();
-                return fn == baseName
-                    || fn == baseName + "_hi"
-                    || fn == baseName + "+hi"
-                    || fn.StartsWith(baseName + ".", StringComparison.OrdinalIgnoreCase);
-            }).ToArray();
+                result.Warnings.Add($"Skipped '{candidate.Name}': a vehicle with this name already exists in the project.");
+                continue;
+            }
 
-            // Import the binary files
-            var binaryFiles = matchingFiles
-                .Where(f => KnownYftExtensions.Any(ext => f.EndsWith(ext, StringComparison.OrdinalIgnoreCase))
-                         || KnownYtdExtensions.Any(ext => f.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
-                .ToArray();
+            var vehicle = VehicleDefaults.CreateDefault(candidate.Name);
+            vehicle.CarCols = null; // sirens live in the project pool
+            if (candidate.VehicleMeta != null) vehicle.VehicleMeta = candidate.VehicleMeta;
+            if (candidate.Handling != null) vehicle.Handling = candidate.Handling;
+            if (candidate.CarVariation != null) vehicle.CarVariation = candidate.CarVariation;
+            if (vehicle.VehicleMeta != null && string.IsNullOrEmpty(vehicle.VehicleMeta.DisplayName))
+                vehicle.VehicleMeta.DisplayName = vehicle.VehicleMeta.GameName;
 
-            if (binaryFiles.Length > 0)
-                ImportVehicleFiles(project, vehicle, binaryFiles);
+            vehicle.YftRelativePath = StoreFile(project, vehicle.Name, candidate.Model);
+            vehicle.YftHiRelativePath = StoreFile(project, vehicle.Name, candidate.ModelHi);
+            vehicle.YtdRelativePath = StoreFile(project, vehicle.Name, candidate.Texture);
+            vehicle.YtdHiRelativePath = StoreFile(project, vehicle.Name, candidate.TextureHi);
+            foreach (var extra in candidate.ModParts.Concat(candidate.ExtraTextures))
+                vehicle.ExtraFiles.Add(StoreFile(project, vehicle.Name, extra)!);
 
-            resource.Vehicles.Add(vehicle);
+            result.ImportedVehicles.Add(vehicle);
         }
 
-        // Handle meta files separately — they may contain multiple vehicle entries
-        // These are returned for the caller to process via MetaImportMatchService
+        // Siren groups: only those referenced by imported vehicles
+        var referenced = result.ImportedVehicles
+            .Select(v => v.CarVariation?.SirenSettings ?? 0).Where(id => id != 0).ToHashSet();
+        foreach (var siren in scan.CarCols.SirenSettings.Where(s => referenced.Contains(s.Id)))
+        {
+            var existing = project.CarCols.SirenSettings.FirstOrDefault(s => s.Id == siren.Id);
+            if (existing == null)
+                result.SirensToAdd.Add(siren);
+            else if (!SameSiren(existing, siren))
+                result.Warnings.Add(
+                    $"Siren setting {siren.Id} ('{siren.Name}') already exists in the project with different content — kept the existing one.");
+        }
+
+        return result;
+    }
+
+    public void ApplyImport(Project project, Resource resource, ImportResult result)
+    {
+        foreach (var vehicle in result.ImportedVehicles)
+            resource.Vehicles.Add(vehicle);
+
+        foreach (var siren in result.SirensToAdd)
+        {
+            if (project.CarCols.SirenSettings.Any(s => s.Id == siren.Id)) continue;
+            project.CarCols.SirenSettings.Add(siren);
+            result.ImportedSirenIds.Add(siren.Id);
+        }
+
+        if (result.ImportedVehicles.Count > 0 || result.ImportedSirenIds.Count > 0)
+            project.IsDirty = true;
+    }
+
+    private static bool SameSiren(SirenSetting a, SirenSetting b)
+    {
+        var svc = new MetaXmlService();
+        return System.Xml.Linq.XNode.DeepEquals(svc.BuildSirenSetting(a), svc.BuildSirenSetting(b));
+    }
+
+    /// <summary>Copies (and encrypts) a source file into vehicles/&lt;vehicleName&gt;/ and returns its relative path.</summary>
+    private string? StoreFile(Project project, string vehicleName, string? sourcePath)
+    {
+        if (string.IsNullOrEmpty(sourcePath)) return null;
+
+        var vehicleDir = Path.Combine(project.FolderPath!, VehiclesFolder, vehicleName);
+        Directory.CreateDirectory(vehicleDir);
+
+        var fileName = Path.GetFileName(sourcePath);
+        File.WriteAllBytes(Path.Combine(vehicleDir, fileName), _encryption.EncryptLocal(File.ReadAllBytes(sourcePath)));
+        return Path.Combine(vehicleName, fileName);
     }
 
     public byte[] DecryptVehicleFile(Project project, Vehicle vehicle, string relativePath)
@@ -383,6 +450,8 @@ public class ProjectService : IProjectService
         vehicle.YftHiRelativePath = UpdatePath(vehicle.YftHiRelativePath, oldName, newName);
         vehicle.YtdRelativePath   = UpdatePath(vehicle.YtdRelativePath,   oldName, newName);
         vehicle.YtdHiRelativePath = UpdatePath(vehicle.YtdHiRelativePath, oldName, newName);
+        for (int i = 0; i < vehicle.ExtraFiles.Count; i++)
+            vehicle.ExtraFiles[i] = UpdatePath(vehicle.ExtraFiles[i], oldName, newName)!;
     }
 
     public Vehicle CloneVehicle(Vehicle vehicle)
@@ -444,18 +513,26 @@ public class ProjectService : IProjectService
         return JsonSerializer.Serialize(project, ProjectJsonOptions.Default);
     }
 
+    /// <summary>
+    /// Assigns an imported file to a slot. Main slots are only used when the file name matches the
+    /// vehicle (name.yft, name_hi.yft, name.ytd, name+hi.ytd); everything else (mod parts, extra
+    /// texture dictionaries) goes to <see cref="Vehicle.ExtraFiles"/>.
+    /// </summary>
     private static void AssignFileToVehicle(Vehicle vehicle, string fileName, string relativePath)
     {
         var lower = fileName.ToLowerInvariant();
+        var name = vehicle.Name.ToLowerInvariant();
 
-        if (lower.EndsWith("_hi.yft"))
+        if (lower == name + "_hi.yft")
             vehicle.YftHiRelativePath = relativePath;
-        else if (lower.EndsWith(".yft"))
+        else if (lower == name + ".yft")
             vehicle.YftRelativePath = relativePath;
-        else if (lower.Contains("+hi") && lower.EndsWith(".ytd"))
+        else if (lower == name + "+hi.ytd")
             vehicle.YtdHiRelativePath = relativePath;
-        else if (lower.EndsWith(".ytd"))
+        else if (lower == name + ".ytd")
             vehicle.YtdRelativePath = relativePath;
+        else if (!vehicle.ExtraFiles.Contains(relativePath, StringComparer.OrdinalIgnoreCase))
+            vehicle.ExtraFiles.Add(relativePath);
     }
 
     private static void CopyDirectory(string sourceDir, string destinationDir)

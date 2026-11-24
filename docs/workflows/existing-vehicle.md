@@ -11,6 +11,30 @@ This is the most common starting point. You have a GTA V vehicle extracted from 
 
 ---
 
+## Fast path: drag & drop
+
+Open (or create) a project and **drag the downloaded vehicle folder or `.zip` onto the window** — or use
+**Edit > Import Vehicle Folder… / Import Vehicle ZIP…**. Whole FiveM resources (`stream/` + `data/`) and
+packs with several vehicles work too.
+
+The tool scans everything recursively and shows a preview:
+
+- every vehicle it found, with its files (model, `_hi`, textures, `+hi`, mod parts, extra texture dictionaries)
+- which metas were matched (`vehicles.meta`, `handling.meta`, `carvariations.meta`, siren group)
+- warnings, e.g. missing handling or files it could not assign
+
+Uncheck what you don't want and click **Import**. Vehicles go into the selected resource; with no resource
+selected, a new one named after the folder/ZIP is created. The import runs in the background.
+
+!!! tip "How files are recognised"
+    Meta files are detected by their XML content, so names like `vehicles_police.meta` are fine.
+    Vehicle names come from `vehicles.meta` (`modelName`), otherwise from the `.yft` files.
+    `name_*.yft` are mod kit parts of `name`, `name_*.ytd` / `name+hi*.ytd` extra textures.
+
+The steps below describe the manual way.
+
+---
+
 ## Step 1: Create a Project
 
 Open the tool. On the welcome screen, click **New Project** (`Ctrl+N`) and choose an empty folder. This folder becomes the project root.
@@ -53,6 +77,7 @@ Select the `.yft` and `.ytd` files. The tool accepts:
 | `name_hi.yft` | High-detail model |
 | `name.ytd` | Main texture dictionary |
 | `name+hi.ytd` | High-detail texture dictionary |
+| anything else (`name_bumf.yft`, `name_livery.ytd`, …) | Extra files (mod parts, extra textures) — exported to `stream/` as well |
 
 Each file is encrypted with DPAPI and stored in `vehicles/police1/` inside the project folder.
 

@@ -68,18 +68,8 @@ public class FiveMExportService
         ExportResult result, HashSet<string> usedNames, IProjectService projectService)
     {
         var streamDir = Path.Combine(outputDir, "stream");
-        var relativePaths = new[]
+        foreach (var relPath in vehicle.AllStreamFiles)
         {
-            vehicle.YftRelativePath,
-            vehicle.YftHiRelativePath,
-            vehicle.YtdRelativePath,
-            vehicle.YtdHiRelativePath
-        };
-
-        foreach (var relPath in relativePaths)
-        {
-            if (string.IsNullOrEmpty(relPath)) continue;
-
             try
             {
                 var fileName = Path.GetFileName(relPath);

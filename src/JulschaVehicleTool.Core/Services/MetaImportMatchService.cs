@@ -3,58 +3,70 @@ using JulschaVehicleTool.Core.Models;
 namespace JulschaVehicleTool.Core.Services;
 
 /// <summary>
-/// Service for auto-matching parsed meta file entries to existing vehicles in a resource.
+/// Matches parsed meta file entries (keyed by modelName / handlingName) to existing vehicles.
+/// Only <see cref="MatchConfidence.Exact"/> and <see cref="MatchConfidence.High"/> matches are meant
+/// to be applied automatically; <see cref="MatchConfidence.Partial"/> matches are suggestions.
+/// Every vehicle is matched at most once (best confidence wins, then file order).
 /// </summary>
 public class MetaImportMatchService
 {
-    /// <summary>
-    /// Auto-matches parsed entries (keyed by name from meta file) to vehicles in the resource.
-    /// Returns a list of match results that can be presented to the user for confirmation.
-    /// </summary>
     public List<MatchResult<T>> AutoMatch<T>(Dictionary<string, T> parsedEntries, IList<Vehicle> vehicles)
     {
-        var results = new List<MatchResult<T>>();
+        var results = parsedEntries
+            .Select(kv => new MatchResult<T> { ParsedName = kv.Key, Data = kv.Value })
+            .ToList();
 
-        foreach (var (parsedName, data) in parsedEntries)
+        var taken = new HashSet<Vehicle>();
+
+        // Resolve in rounds of decreasing confidence so an exact match is never
+        // stolen by an earlier fuzzy one.
+        foreach (var level in new[] { MatchConfidence.Exact, MatchConfidence.High, MatchConfidence.Partial })
         {
-            var match = FindBestMatch(parsedName, vehicles);
-            results.Add(new MatchResult<T>
+            foreach (var result in results.Where(r => r.MatchedVehicle == null))
             {
-                ParsedName = parsedName,
-                Data = data,
-                MatchedVehicle = match.vehicle,
-                Confidence = match.confidence,
-            });
+                var candidates = vehicles.Where(v => !taken.Contains(v) && Rate(result.ParsedName, v) == level).ToList();
+
+                // Ambiguous partial matches (police → police1 and police2) are not suggested at all
+                if (level == MatchConfidence.Partial && candidates.Count != 1) continue;
+
+                var vehicle = candidates.FirstOrDefault();
+                if (vehicle == null) continue;
+
+                result.MatchedVehicle = vehicle;
+                result.Confidence = level;
+                taken.Add(vehicle);
+            }
         }
+
+        foreach (var r in results.Where(r => r.MatchedVehicle == null))
+            r.Confidence = MatchConfidence.None;
 
         return results;
     }
 
-    private static (Vehicle? vehicle, MatchConfidence confidence) FindBestMatch(string parsedName, IList<Vehicle> vehicles)
+    private static MatchConfidence Rate(string parsedName, Vehicle v)
     {
-        // 1. Exact match on vehicle name (case-insensitive)
-        var exact = vehicles.FirstOrDefault(v =>
-            v.Name.Equals(parsedName, StringComparison.OrdinalIgnoreCase));
-        if (exact != null)
-            return (exact, MatchConfidence.Exact);
+        if (v.Name.Equals(parsedName, StringComparison.OrdinalIgnoreCase))
+            return MatchConfidence.Exact;
 
-        // 2. Handling name matches (handling names are often uppercase versions of vehicle names)
-        var upperMatch = vehicles.FirstOrDefault(v =>
-            v.Name.Equals(parsedName, StringComparison.OrdinalIgnoreCase) ||
-            v.Handling?.HandlingName.Equals(parsedName, StringComparison.OrdinalIgnoreCase) == true);
-        if (upperMatch != null)
-            return (upperMatch, MatchConfidence.High);
+        if (Eq(v.VehicleMeta?.ModelName, parsedName) || Eq(v.VehicleMeta?.HandlingId, parsedName)
+            || Eq(v.Handling?.HandlingName, parsedName) || Eq(v.CarVariation?.ModelName, parsedName))
+            return MatchConfidence.High;
 
-        // 3. Contains match (parsed name is contained in vehicle name or vice versa)
-        var containsMatch = vehicles.FirstOrDefault(v =>
-            v.Name.Contains(parsedName, StringComparison.OrdinalIgnoreCase) ||
-            parsedName.Contains(v.Name, StringComparison.OrdinalIgnoreCase));
-        if (containsMatch != null)
-            return (containsMatch, MatchConfidence.Partial);
+        // Partial only on a word boundary: "police1" ~ "police1_lspd", but not "police1" ~ "police10"
+        if (IsBoundaryPrefix(parsedName, v.Name) || IsBoundaryPrefix(v.Name, parsedName))
+            return MatchConfidence.Partial;
 
-        // 4. No match
-        return (null, MatchConfidence.None);
+        return MatchConfidence.None;
     }
+
+    private static bool Eq(string? a, string b) =>
+        !string.IsNullOrEmpty(a) && a.Equals(b, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsBoundaryPrefix(string prefix, string full) =>
+        full.Length > prefix.Length
+        && full.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+        && full[prefix.Length] is '_' or '-' or '+';
 }
 
 public class MatchResult<T>
@@ -63,6 +75,9 @@ public class MatchResult<T>
     public T Data { get; set; } = default!;
     public Vehicle? MatchedVehicle { get; set; }
     public MatchConfidence Confidence { get; set; }
+
+    /// <summary>True if the match is safe to apply without asking the user.</summary>
+    public bool IsAutoApplicable => MatchedVehicle != null && Confidence is MatchConfidence.Exact or MatchConfidence.High;
 }
 
 public enum MatchConfidence

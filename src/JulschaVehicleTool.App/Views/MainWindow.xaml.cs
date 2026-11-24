@@ -47,6 +47,35 @@ public partial class MainWindow : Window
             MessageBoxImage.None);
     }
 
+    // ── Drag & drop import (folders and .zip files) ──
+
+    private static string[]? GetDroppedPaths(DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return null;
+        var paths = (e.Data.GetData(DataFormats.FileDrop) as string[])?
+            .Where(p => System.IO.Directory.Exists(p)
+                        || p.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        return paths is { Length: > 0 } ? paths : null;
+    }
+
+    private void OnDragOver(object sender, DragEventArgs e)
+    {
+        var canImport = DataContext is MainWindowViewModel { IsProjectOpen: true, IsImporting: false }
+                        && GetDroppedPaths(e) != null;
+        e.Effects = canImport ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private async void OnDrop(object sender, DragEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel { IsProjectOpen: true } vm) return;
+        var paths = GetDroppedPaths(e);
+        if (paths == null) return;
+        e.Handled = true;
+        await vm.ImportPathsAsync(paths);
+    }
+
     private void OnTreeViewSelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
         if (DataContext is not MainWindowViewModel vm) return;

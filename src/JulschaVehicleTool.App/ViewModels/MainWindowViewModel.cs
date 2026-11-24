@@ -34,6 +34,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     // Auto-save timer
     private readonly DispatcherTimer _autoSaveTimer;
+    private readonly List<string> _skippedPartialMatches = new();
 
     // Model cache for 3D viewer
     private readonly Dictionary<string, VehicleModelData> _modelCache = new();
@@ -802,30 +803,120 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void ImportVehicleFolder()
+    private async Task ImportVehicleFolderAsync()
     {
-        Resource? resource = SelectedTreeNode switch
-        {
-            ResourceTreeNode rn => rn.Resource,
-            VehicleTreeNode vn => FindResourceForVehicle(vn.Vehicle),
-            _ => null
-        };
-
-        if (_currentProject == null || resource == null)
-        {
-            StatusText = "Select a resource first.";
-            return;
-        }
+        if (_currentProject == null) return;
 
         var dialog = new Ookii.Dialogs.Wpf.VistaFolderBrowserDialog
         {
-            Description = "Select vehicle folder to import",
+            Description = "Select a vehicle folder or FiveM resource to import",
             UseDescriptionForTitle = true,
         };
         if (dialog.ShowDialog(Owner) != true) return;
 
+        await ImportPathsAsync([dialog.SelectedPath]);
+    }
+
+    [RelayCommand]
+    private async Task ImportVehicleZipAsync()
+    {
+        if (_currentProject == null) return;
+
+        var dialog = new OpenFileDialog
+        {
+            Filter = "ZIP archives|*.zip",
+            Title = "Import vehicles from ZIP",
+            Multiselect = true,
+        };
+        if (dialog.ShowDialog(Owner) != true) return;
+
+        await ImportPathsAsync(dialog.FileNames);
+    }
+
+    /// <summary>True while a scan/import is running (blocks a second drop).</summary>
+    [ObservableProperty]
+    private bool _isImporting;
+
+    /// <summary>
+    /// Durty-style import: each path (folder or .zip) is scanned, the detected vehicles are shown
+    /// in a preview, and the confirmed ones are imported in the background.
+    /// Target: the selected resource (or the resource of the selected vehicle); otherwise a new
+    /// resource named after the folder/ZIP is created.
+    /// </summary>
+    public async Task ImportPathsAsync(IEnumerable<string> paths)
+    {
+        if (_currentProject == null || IsImporting) return;
+
+        IsImporting = true;
         try
         {
+            foreach (var path in paths)
+                await ImportSinglePathAsync(path);
+        }
+        finally
+        {
+            IsImporting = false;
+            IsProgressVisible = false;
+        }
+    }
+
+    private async Task ImportSinglePathAsync(string path)
+    {
+        var project = _currentProject!;
+        var isZip = File.Exists(path) && path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
+        if (!isZip && !Directory.Exists(path))
+        {
+            StatusText = $"Not a folder or ZIP: {Path.GetFileName(path)}";
+            return;
+        }
+
+        var sourceName = isZip ? Path.GetFileNameWithoutExtension(path) : new DirectoryInfo(path).Name;
+        string? tempDir = null;
+
+        try
+        {
+            IsProgressVisible = true;
+            ProgressValue = 0;
+            ProgressMax = 1;
+            ProgressMessage = $"Scanning {sourceName}...";
+            StatusText = ProgressMessage;
+
+            var scanRoot = path;
+            if (isZip)
+            {
+                tempDir = Path.Combine(Path.GetTempPath(), $"julveh_zipimport_{Guid.NewGuid():N}");
+                await Task.Run(() => System.IO.Compression.ZipFile.ExtractToDirectory(path, tempDir));
+                scanRoot = tempDir;
+            }
+
+            var scanner = new Core.Services.Import.VehicleImportScanner(_metaXmlService);
+            var scan = await Task.Run(() => scanner.Scan(scanRoot));
+            IsProgressVisible = false;
+
+            if (scan.Vehicles.Count == 0)
+            {
+                StatusText = $"No vehicles found in {sourceName}";
+                System.Windows.MessageBox.Show(
+                    $"No vehicles (.yft files or vehicles.meta entries) were found in \"{sourceName}\".",
+                    "Import", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                return;
+            }
+
+            var target = SelectedTreeNode switch
+            {
+                ResourceTreeNode rn => rn.Resource,
+                VehicleTreeNode vn => FindResourceForVehicle(vn.Vehicle),
+                _ => null
+            };
+            var targetName = target?.Name ?? $"{SanitizeResourceName(sourceName)} (new)";
+
+            var preview = new Views.ImportPreviewDialog(scan, sourceName, targetName) { Owner = Owner };
+            if (preview.ShowDialog() != true)
+            {
+                StatusText = "Import cancelled";
+                return;
+            }
+
             IsProgressVisible = true;
             var progress = new Progress<(int current, int total, string message)>(p =>
             {
@@ -834,26 +925,58 @@ public partial class MainWindowViewModel : ObservableObject
                 ProgressMessage = p.message;
             });
 
-            _projectService.ImportVehicleFolder(_currentProject, resource, dialog.SelectedPath, progress);
-            _currentProject.IsDirty = true;
+            var result = await Task.Run(() => _projectService.PrepareImport(project, scan, progress));
+
+            if (target == null)
+            {
+                target = new Resource { Name = UniqueResourceName(SanitizeResourceName(sourceName)) };
+                project.Resources.Add(target);
+            }
+            _projectService.ApplyImport(project, target, result);
+
             RebuildTree();
-            SaveProject(); // persist immediately
+            SaveProject();
 
-            // Select the first imported vehicle so editors and dirty tracking are initialized
-            var firstImported = resource.Vehicles.LastOrDefault();
-            if (firstImported != null)
-                SelectVehicleInTree(firstImported); // triggers OnSelectedTreeNodeChanged → LoadVehicleIntoEditors
+            var first = result.ImportedVehicles.FirstOrDefault();
+            if (first != null) SelectVehicleInTree(first);
 
-            StatusText = $"Imported vehicle(s) from: {Path.GetFileName(dialog.SelectedPath)}";
+            StatusText = $"Imported {result.ImportedVehicles.Count} vehicle(s) into {target.Name}"
+                         + (result.ImportedSirenIds.Count > 0 ? $", {result.ImportedSirenIds.Count} siren group(s)" : "")
+                         + (result.Warnings.Count > 0 ? $" — {result.Warnings.Count} warning(s)" : "");
+
+            if (result.Warnings.Count > 0)
+                System.Windows.MessageBox.Show(string.Join(Environment.NewLine, result.Warnings),
+                    "Import warnings", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
         }
         catch (Exception ex)
         {
             StatusText = $"Import error: {ex.Message}";
+            Log($"[Import] {ex}");
         }
         finally
         {
             IsProgressVisible = false;
+            if (tempDir != null)
+            {
+                try { Directory.Delete(tempDir, true); } catch { /* best effort */ }
+            }
         }
+    }
+
+    private static string SanitizeResourceName(string name)
+    {
+        var cleaned = new string(name.ToLowerInvariant()
+            .Select(c => char.IsLetterOrDigit(c) || c is '_' or '-' ? c : '_').ToArray()).Trim('_');
+        return string.IsNullOrEmpty(cleaned) ? "imported" : cleaned;
+    }
+
+    private string UniqueResourceName(string baseName)
+    {
+        var existing = new HashSet<string>(_currentProject!.Resources.Select(r => r.Name), StringComparer.OrdinalIgnoreCase);
+        if (!existing.Contains(baseName)) return baseName;
+        int n = 2;
+        while (existing.Contains($"{baseName}_{n}")) n++;
+        return $"{baseName}_{n}";
     }
 
     [RelayCommand]
@@ -891,6 +1014,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         var allVehicles = targetResource.Vehicles;
         int applied = 0;
+        _skippedPartialMatches.Clear();
 
         foreach (var file in dialog.FileNames)
         {
@@ -948,7 +1072,10 @@ public partial class MainWindowViewModel : ObservableObject
         if (singleVehicle != null)
             LoadVehicleIntoEditors(singleVehicle);
         SaveProject();
-        StatusText = $"Imported {applied} assignment(s) from {dialog.FileNames.Length} file(s)";
+        StatusText = $"Imported {applied} assignment(s) from {dialog.FileNames.Length} file(s)"
+            + (_skippedPartialMatches.Count > 0
+                ? $" — not applied (only partial name match): {string.Join(", ", _skippedPartialMatches)}"
+                : "");
     }
 
     /// <summary>
@@ -984,11 +1111,16 @@ public partial class MainWindowViewModel : ObservableObject
 
         foreach (var match in matches)
         {
-            if (match.MatchedVehicle != null)
+            if (match.IsAutoApplicable)
             {
-                assign(match.MatchedVehicle, match.Data);
-                Log($"  [{metaType}] Matched '{match.ParsedName}' → {match.MatchedVehicle.Name} (confidence: {match.Confidence})");
+                assign(match.MatchedVehicle!, match.Data);
+                Log($"  [{metaType}] Matched '{match.ParsedName}' → {match.MatchedVehicle!.Name} (confidence: {match.Confidence})");
                 count++;
+            }
+            else if (match.MatchedVehicle != null)
+            {
+                Log($"  [{metaType}] Not applied: '{match.ParsedName}' only partially matches {match.MatchedVehicle.Name} — rename the vehicle to apply it");
+                _skippedPartialMatches.Add($"{match.ParsedName} → {match.MatchedVehicle.Name}?");
             }
             else
             {
