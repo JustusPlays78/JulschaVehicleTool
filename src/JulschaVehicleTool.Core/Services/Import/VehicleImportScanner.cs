@@ -3,13 +3,15 @@ using JulschaVehicleTool.Core.Models;
 
 namespace JulschaVehicleTool.Core.Services.Import;
 
-public enum MetaKind { Handling, Vehicles, CarVariations, CarCols, Other }
+public enum MetaKind { Handling, Vehicles, CarVariations, CarCols, Passthrough, Other }
 
 public class ScannedMetaFile
 {
     public required string Path { get; init; }
     public required MetaKind Kind { get; init; }
     public string RootElement { get; init; } = "";
+    /// <summary>For <see cref="MetaKind.Passthrough"/>: the FiveM data_file type.</summary>
+    public string? DataFileType { get; init; }
 }
 
 /// <summary>One vehicle detected in a dropped folder/ZIP, ready to be confirmed by the user.</summary>
@@ -78,6 +80,12 @@ public class VehicleImportScanner
 
     private static readonly string[] StreamExtensions = [".yft", ".ytd"];
 
+    /// <summary>Meta files that are not edited but exported as-is (root element → data_file type).</summary>
+    public static readonly IReadOnlyDictionary<string, string> PassthroughTypes = new Dictionary<string, string>
+    {
+        ["CVehicleMetadataMgr"] = "VEHICLE_LAYOUTS_FILE",
+    };
+
     public ImportScan Scan(string rootPath)
     {
         var scan = new ImportScan { RootPath = rootPath };
@@ -114,12 +122,17 @@ public class VehicleImportScanner
                 "CVehicleModelInfo__InitDataList" => MetaKind.Vehicles,
                 "CVehicleModelInfoVariation" => MetaKind.CarVariations,
                 "CVehicleModelInfoVarGlobal" => MetaKind.CarCols,
+                _ when PassthroughTypes.ContainsKey(root) => MetaKind.Passthrough,
                 _ => MetaKind.Other,
             };
             if (kind == MetaKind.Other && file.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
                 continue; // random XML, not a GTA meta
 
-            scan.MetaFiles.Add(new ScannedMetaFile { Path = file, Kind = kind, RootElement = root });
+            scan.MetaFiles.Add(new ScannedMetaFile
+            {
+                Path = file, Kind = kind, RootElement = root,
+                DataFileType = PassthroughTypes.GetValueOrDefault(root),
+            });
 
             try
             {
@@ -136,9 +149,9 @@ public class VehicleImportScanner
                         break;
                     case MetaKind.CarCols:
                         MergeCarCols(_meta.LoadCarCols(file), file, scan);
-                        if (HasModKitsOrLights(file))
-                            scan.Warnings.Add($"{Rel(rootPath, file)} contains mod kits/lights — these are not imported yet (only sirens).");
                         break;
+                    case MetaKind.Passthrough:
+                        break; // exported unchanged
                     case MetaKind.Other:
                         scan.Warnings.Add($"{Rel(rootPath, file)} ({root}) is not supported yet and will be ignored.");
                         break;
@@ -242,6 +255,10 @@ public class VehicleImportScanner
                     ? "No handling.meta entry — defaults will be used"
                     : $"Handling '{handlingId}' not found — defaults will be used");
 
+            foreach (var kit in c.CarVariation?.Kits ?? [])
+                if (!IsVanillaKit(kit) && scan.CarCols.Kits.All(k => !k.Name.Equals(kit, StringComparison.OrdinalIgnoreCase)))
+                    c.Notes.Add($"Mod kit '{kit}' is referenced but not part of this import");
+
             var sirenId = c.CarVariation?.SirenSettings ?? 0;
             if (sirenId != 0 && scan.CarCols.SirenSettings.All(s => s.Id != sirenId))
                 c.Notes.Add($"Siren setting {sirenId} is referenced but not part of this import");
@@ -274,17 +291,27 @@ public class VehicleImportScanner
             else
                 scan.CarCols.SirenSettings.Add(siren);
         }
+
+        foreach (var kit in data.Kits)
+        {
+            if (scan.CarCols.Kits.Any(k => k.Name.Equals(kit.Name, StringComparison.OrdinalIgnoreCase) || k.Id == kit.Id))
+                scan.Warnings.Add($"Mod kit {kit.Id} '{kit.Name}' is defined more than once — ignoring the one in {Rel(scan.RootPath, file)}");
+            else
+                scan.CarCols.Kits.Add(kit);
+        }
+
+        foreach (var light in data.Lights)
+        {
+            if (scan.CarCols.Lights.Any(l => l.Id == light.Id))
+                scan.Warnings.Add($"Light setting {light.Id} is defined more than once — ignoring the one in {Rel(scan.RootPath, file)}");
+            else
+                scan.CarCols.Lights.Add(light);
+        }
     }
 
-    private static bool HasModKitsOrLights(string file)
-    {
-        try
-        {
-            var root = XDocument.Load(file).Root;
-            return root?.Element("Kits")?.HasElements == true || root?.Element("Lights")?.HasElements == true;
-        }
-        catch { return false; }
-    }
+    /// <summary>Vanilla mod kits every vehicle may reference without defining them.</summary>
+    internal static bool IsVanillaKit(string kitName) =>
+        kitName.StartsWith("0_default", StringComparison.OrdinalIgnoreCase) || kitName.Equals("0", StringComparison.Ordinal);
 
     private static string? TryGetRootElement(string file)
     {

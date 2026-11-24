@@ -6,6 +6,24 @@ namespace JulschaVehicleTool.Core.Models;
 public partial class CarColsData : ObservableObject
 {
     public ObservableCollection<SirenSetting> SirenSettings { get; } = new();
+
+    /// <summary>Mod kits (&lt;Kits&gt;), referenced by vehicles via carvariations &lt;kits&gt; (kitName).</summary>
+    public ObservableCollection<CarColsEntry> Kits { get; } = new();
+
+    /// <summary>Light settings (&lt;Lights&gt;), referenced by vehicles via carvariations &lt;lightSettings&gt; (id).</summary>
+    public ObservableCollection<CarColsEntry> Lights { get; } = new();
+}
+
+/// <summary>
+/// A carcols.meta entry the tool does not edit (mod kit, light setting). The original &lt;Item&gt; XML
+/// is kept and written back unchanged.
+/// </summary>
+public partial class CarColsEntry : ObservableObject
+{
+    [ObservableProperty] private int _id;
+    /// <summary>kitName for mod kits; empty for lights.</summary>
+    [ObservableProperty] private string _name = "";
+    [ObservableProperty] private string _xml = "";
 }
 
 public partial class SirenSetting : ObservableObject

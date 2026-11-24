@@ -8,6 +8,8 @@
 - **Mod kit parts and extra texture dictionaries** (`name_*.yft`, `name_*.ytd`, `name+hi*.ytd`) are imported and exported
 - **Import as…** — vehicles whose name already exists get a free name proposed; files and meta names are renamed
 - **IDs used on server** for siren groups; new and imported groups never get these IDs
+- **Mod kits and light settings** from `carcols.meta` are imported (only those the vehicles use) and exported again
+- **vehiclelayouts.meta** is imported and exported unchanged with `VEHICLE_LAYOUTS_FILE`
 - **Project-wide validation before export**: duplicate modelName/handlingName/txdName across resources, model name ≠ `.yft` file name, stream file collisions, siren IDs outside 1–255 or reserved
 
 ### Changed
@@ -15,10 +17,13 @@
 - **Clone** copies the stream files under the new name and renames all meta names — the clone is fully independent
 - New siren groups get the lowest free ID in 1–255 (was: 1000+); colliding imported siren groups are renumbered automatically
 - Saving deletes files of removed vehicles/resources; the project ZIP only contains referenced files
+- Re-export replaces `stream/`, `data/` and the generated Lua files, so files of removed vehicles disappear (only in folders exported by the tool; own files are kept)
+- `fxmanifest.lua`: `data_file` order layouts → handling → vehicles → carcols → carvariations; `description` uses the resource description
 - Import runs in the background
 
 ### Fixed
 - Importing `name_bumf.yft` with *Import Vehicle Files* overwrote the main model
+- Exporting a single `carcols.meta` from the vehicle context menu did nothing (it read the old per-vehicle data)
 - Meta auto-match: `police1` no longer matches `police10`; partial matches are only suggested; a vehicle is matched at most once
 - Rename silently broke file paths when the target folder existed
 - Vehicle names were only unique per resource, so vehicles in different resources overwrote each other's files

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CVehicleMetadataMgr>
+  <VehicleLayoutInfos>
+    <Item type="CVehicleLayoutInfo">
+      <Name>LAYOUT_STD_HIGHWINDOW_JV</Name>
+      <Seats>
+        <Item>
+          <SeatInfo ref="SEAT_STANDARD_FRONT_LEFT" />
+          <SeatAnimInfo ref="SEAT_ANIM_STD_FRONT_LEFT" />
+        </Item>
+      </Seats>
+    </Item>
+  </VehicleLayoutInfos>
+</CVehicleMetadataMgr>
