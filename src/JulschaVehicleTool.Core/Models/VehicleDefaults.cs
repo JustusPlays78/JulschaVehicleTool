@@ -72,23 +72,30 @@ public static class VehicleDefaults
         AiHandling = "AVERAGE",
     };
 
-    public static VehicleMetaData CreateDefaultVehicleMeta(string name) => new()
+    public static VehicleMetaData CreateDefaultVehicleMeta(string name)
     {
-        ModelName = name,
-        TxdName = name,
-        HandlingId = name.ToUpperInvariant(),
-        GameName = name,
-        VehicleMakeName = "",
-        Type = "AUTOMOBILE",
-        PlateType = "VPT_FRONT_AND_BACK_PLATES",
-        DashboardType = "VDT_RACING",
-        VehicleClass = "VC_SPORT",
-        WheelType = "VWT_SPORT",
-        Layout = "LAYOUT_STANDARD",
-        Swankness = "SWANKNESS_NORMAL",
-        MaxPassengers = 1,
-        Mass = 1500f,
-    };
+        var meta = new VehicleMetaData
+        {
+            ModelName = name,
+            TxdName = name,
+            HandlingId = name.ToUpperInvariant(),
+            GameName = name,
+            DisplayName = name,
+            VehicleMakeName = "",
+            Type = "VEHICLE_TYPE_CAR",
+            PlateType = "VPT_FRONT_AND_BACK_PLATES",
+            DashboardType = "VDT_RACING",
+            VehicleClass = "VC_SPORT",
+            WheelType = "VWT_SPORT",
+            Layout = "LAYOUT_STANDARD",
+            Swankness = "SWANKNESS_1",
+            MaxPassengers = 1,
+            Mass = 1500f,
+        };
+        // Most add-on vehicles rely on the shared vehicle textures (vehshare).
+        meta.TxdRelationships.Add(new TxdRelationship { Parent = "vehshare", Child = name });
+        return meta;
+    }
 
     public static CarVariationData CreateDefaultCarVariation(string name) => new()
     {

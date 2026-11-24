@@ -11,6 +11,12 @@ public partial class CarColsData : ObservableObject
 public partial class SirenSetting : ObservableObject
 {
     [ObservableProperty] private int _id;
+
+    /// <summary>
+    /// Original &lt;Item&gt; XML this entry was imported from (null for entries created in the tool).
+    /// On export only changed fields are patched into it; everything else is preserved 1:1.
+    /// </summary>
+    [ObservableProperty] private string? _sourceXml;
     [ObservableProperty] private string _name = "";
     [ObservableProperty] private float _timeMultiplier = 1f;
     [ObservableProperty] private float _lightFalloffMax = 10f;

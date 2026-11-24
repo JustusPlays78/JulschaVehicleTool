@@ -1,80 +1,130 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CVehicleModelInfo__InitDataList>
+  <residentTxd>vehshare</residentTxd>
+  <residentAnims />
   <InitDatas>
     <Item>
-      <modelName>police1</modelName>
-      <txdName>police1</txdName>
-      <handlingId>police1</handlingId>
-      <gameName>police1</gameName>
+      <modelName>jvpolice</modelName>
+      <txdName>jvpolice</txdName>
+      <handlingId>JVPOLICE</handlingId>
+      <gameName>JVPOLICE</gameName>
       <vehicleMakeName>VAPID</vehicleMakeName>
+      <expressionDictName>null</expressionDictName>
+      <expressionName>null</expressionName>
+      <animConvRoofDictName>null</animConvRoofDictName>
+      <animConvRoofName>null</animConvRoofName>
+      <animConvRoofWindowsAffected />
+      <ptfxAssetName>null</ptfxAssetName>
+      <audioNameHash>POLICE3</audioNameHash>
+      <layout>LAYOUT_STD_HIGHWINDOW</layout>
+      <coverBoundOffsets>STANDARD_COVER_OFFSET_INFO</coverBoundOffsets>
+      <explosionInfo>EXPLOSION_INFO_DEFAULT</explosionInfo>
+      <scenarioLayout />
+      <cameraName>DEFAULT_FOLLOW_VEHICLE_CAMERA</cameraName>
+      <aimCameraName>DEFAULT_THIRD_PERSON_VEHICLE_AIM_CAMERA</aimCameraName>
+      <bonnetCameraName>VEHICLE_BONNET_CAMERA_STANDARD</bonnetCameraName>
+      <povCameraName>DEFAULT_POV_CAMERA</povCameraName>
+      <FirstPersonDriveByIKOffset x="0.000000" y="-0.060000" z="-0.065000" />
+      <PovCameraOffset x="0.000000" y="-0.175000" z="0.645000" />
+      <vfxInfoName>VFXVEHICLEINFO_CAR_GENERIC</vfxInfoName>
+      <shouldUseCinematicViewMode value="true" />
+      <wheelScale value="0.237000" />
+      <wheelScaleRear value="0.237000" />
+      <dirtLevelMin value="0.000000" />
+      <dirtLevelMax value="0.300000" />
+      <diffuseTint value="0x00FFFFFF" />
+      <steerWheelMult value="1.000000" />
+      <HDTextureDist value="5.000000" />
+      <lodDistances content="float_array">
+        15.000000
+        30.000000
+        70.000000
+        140.000000
+        350.000000
+        350.000000
+      </lodDistances>
+      <minSeatHeight value="0.853" />
+      <identicalModelSpawnDistance value="20" />
+      <maxNumOfSameColor value="10" />
+      <defaultBodyHealth value="1000.000000" />
+      <frequency value="100" />
+      <swankness>SWANKNESS_1</swankness>
+      <maxNum value="10" />
+      <flags>FLAG_EXTRAS_REQUIRE FLAG_LAW_ENFORCEMENT FLAG_EMERGENCY_SERVICE FLAG_NO_RESPRAY</flags>
       <type>VEHICLE_TYPE_CAR</type>
       <plateType>VPT_FRONT_AND_BACK_PLATES</plateType>
-      <dashboardType>VDT_CHARGER</dashboardType>
-      <vehicleClass>VC_EMERGENCY</vehicleClass>
-      <wheelType>VWT_SPORT</wheelType>
-      <layout>LAYOUT_STD_HIGHEND</layout>
-      <flags>FLAG_IS_ELECTRIC FLAG_NO_WHEEL_BURST</flags>
-      <strFlags>0</strFlags>
-      <audioNameHash>police_charger_hash</audioNameHash>
-      <swankness>SWANKNESS_1</swankness>
-      <maxPassengers value="3" />
-      <mass value="2100.000000" />
-      <percentSubmerged value="85.000000" />
-      <prevehicleConvRoofDismount value="0.000000" />
-      <searchLight value="1.000000" />
-      <diffuseColor value="0" />
-      <rewards>YOURREWARD</rewards>
-      <cinematicPartCamera />
-    </Item>
-    <Item>
-      <modelName>police2</modelName>
-      <txdName>police2</txdName>
-      <handlingId>police2</handlingId>
-      <gameName>police2</gameName>
-      <vehicleMakeName>BRAVADO</vehicleMakeName>
-      <type>VEHICLE_TYPE_CAR</type>
-      <plateType>VPT_FRONT_AND_BACK_PLATES</plateType>
-      <dashboardType>VDT_CHARGER</dashboardType>
-      <vehicleClass>VC_EMERGENCY</vehicleClass>
-      <wheelType>VWT_SPORT</wheelType>
-      <layout>LAYOUT_STD_HIGHEND</layout>
-      <flags>0</flags>
-      <strFlags>0</strFlags>
-      <audioNameHash>police_buffalo_hash</audioNameHash>
-      <swankness>SWANKNESS_1</swankness>
-      <maxPassengers value="3" />
-      <mass value="2300.000000" />
-      <percentSubmerged value="85.000000" />
-      <prevehicleConvRoofDismount value="0.000000" />
-      <searchLight value="0.000000" />
-      <diffuseColor value="0" />
-      <rewards>YOURREWARD</rewards>
-      <cinematicPartCamera />
-    </Item>
-    <Item>
-      <modelName>ambulance</modelName>
-      <txdName>ambulance</txdName>
-      <handlingId>ambulance</handlingId>
-      <gameName>ambulance</gameName>
-      <vehicleMakeName>BRUTE</vehicleMakeName>
-      <type>VEHICLE_TYPE_CAR</type>
-      <plateType>VPT_BACK_PLATES</plateType>
-      <dashboardType>VDT_VAN</dashboardType>
+      <dashboardType>VDT_DUKES</dashboardType>
       <vehicleClass>VC_EMERGENCY</vehicleClass>
       <wheelType>VWT_MUSCLE</wheelType>
-      <layout>LAYOUT_STD_VAN</layout>
-      <flags>FLAG_IS_VAN</flags>
-      <strFlags>0</strFlags>
-      <audioNameHash>ambulance_hash</audioNameHash>
+      <trailers />
+      <additionalTrailers />
+      <drivers>
+        <Item>
+          <driverName>S_M_Y_Cop_01</driverName>
+          <npcName />
+        </Item>
+      </drivers>
+      <extraIncludes />
+      <doorsWithCollisionWhenClosed />
+      <driveableDoors />
+      <bumpersNeedToCollideWithMap value="false" />
+      <needsRopeTexture value="false" />
+      <requiredExtras>EXTRA_1</requiredExtras>
+      <rewards>
+        <Item>REWARD_WEAPON_PUMPSHOTGUN</Item>
+        <Item>REWARD_STAT_WEAPON</Item>
+      </rewards>
+      <cinematicPartCamera>
+        <Item>WHEEL_FRONT_RIGHT_CAMERA</Item>
+        <Item>WHEEL_FRONT_LEFT_CAMERA</Item>
+        <Item>WHEEL_REAR_RIGHT_CAMERA</Item>
+        <Item>WHEEL_REAR_LEFT_CAMERA</Item>
+      </cinematicPartCamera>
+      <NmBraceOverrideSet />
+      <buoyancySphereOffset x="0.000000" y="0.000000" z="0.000000" />
+      <buoyancySphereSizeScale value="1.000000" />
+      <pOverrideRagdollThreshold type="NULL" />
+      <firstPersonDrivebyData>
+        <Item>STD_POLICE3_FRONT_LEFT</Item>
+        <Item>STD_POLICE3_FRONT_RIGHT</Item>
+      </firstPersonDrivebyData>
+    </Item>
+    <Item>
+      <modelName>jvambulance</modelName>
+      <txdName>jvambulance</txdName>
+      <handlingId>JVAMBULANCE</handlingId>
+      <gameName>JVAMBU</gameName>
+      <vehicleMakeName>BRUTE</vehicleMakeName>
+      <layout>LAYOUT_VAN_AMBULANCE</layout>
+      <lodDistances content="float_array">
+        20.000000
+        40.000000
+        80.000000
+        160.000000
+        500.000000
+        500.000000
+      </lodDistances>
       <swankness>SWANKNESS_1</swankness>
-      <maxPassengers value="3" />
-      <mass value="3800.000000" />
-      <percentSubmerged value="85.000000" />
-      <prevehicleConvRoofDismount value="0.000000" />
-      <searchLight value="0.000000" />
-      <diffuseColor value="0" />
-      <rewards>YOURREWARD</rewards>
-      <cinematicPartCamera />
+      <flags>FLAG_IS_VAN FLAG_EMERGENCY_SERVICE</flags>
+      <type>VEHICLE_TYPE_CAR</type>
+      <plateType>VPT_BACK_PLATES</plateType>
+      <dashboardType>VDT_DEFAULT</dashboardType>
+      <vehicleClass>VC_EMERGENCY</vehicleClass>
+      <wheelType>VWT_SUV</wheelType>
     </Item>
   </InitDatas>
+  <txdRelationships>
+    <Item>
+      <parent>vehshare</parent>
+      <child>jv_emergency_shared</child>
+    </Item>
+    <Item>
+      <parent>jv_emergency_shared</parent>
+      <child>jvpolice</child>
+    </Item>
+    <Item>
+      <parent>vehshare</parent>
+      <child>jvambulance</child>
+    </Item>
+  </txdRelationships>
 </CVehicleModelInfo__InitDataList>

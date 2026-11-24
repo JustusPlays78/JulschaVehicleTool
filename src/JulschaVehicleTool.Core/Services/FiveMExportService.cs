@@ -210,12 +210,22 @@ public class FiveMExportService
         var sb = new StringBuilder();
         sb.AppendLine("-- Vehicle display names");
 
+        sb.AppendLine("-- gameName (vehicles.meta) is the text label key; the value is the name shown in game.");
+        sb.AppendLine("Citizen.CreateThread(function()");
+
         foreach (var v in resource.Vehicles)
         {
-            var modelName = v.VehicleMeta?.ModelName ?? v.Name;
-            var displayName = v.VehicleMeta?.GameName ?? v.Name;
-            sb.AppendLine($"AddTextEntry('{EscapeLua(modelName)}', '{EscapeLua(displayName)}')");
+            var label = v.VehicleMeta?.GameName;
+            if (string.IsNullOrWhiteSpace(label)) label = v.VehicleMeta?.ModelName;
+            if (string.IsNullOrWhiteSpace(label)) label = v.Name;
+
+            var displayName = v.VehicleMeta?.DisplayName;
+            if (string.IsNullOrWhiteSpace(displayName)) displayName = label;
+
+            sb.AppendLine($"    AddTextEntry('{EscapeLua(label)}', '{EscapeLua(displayName)}')");
         }
+
+        sb.AppendLine("end)");
 
         File.WriteAllText(Path.Combine(outputDir, "vehicle_names.lua"), sb.ToString());
     }

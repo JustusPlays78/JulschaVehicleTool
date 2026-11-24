@@ -125,8 +125,10 @@ Enable "Include Vehicle Names" in Resource Settings to generate this file:
 
 ```lua
 -- Vehicle display names
-AddTextEntry('police1', 'LSPD Patrol Car')
-AddTextEntry('police2', 'LSPD Interceptor')
+Citizen.CreateThread(function()
+    AddTextEntry('POLICE1', 'LSPD Patrol Car')
+    AddTextEntry('POLICE2', 'LSPD Interceptor')
+end)
 ```
 
-This sets the name shown when players look at the vehicle. The display name comes from the `GameName` field in the Vehicle Meta editor.
+This sets the name shown when players look at the vehicle. The key is the `Game Name` label from `vehicles.meta`; the text comes from the **Display Name** field in the Vehicle Meta editor (falls back to the Game Name if empty).
