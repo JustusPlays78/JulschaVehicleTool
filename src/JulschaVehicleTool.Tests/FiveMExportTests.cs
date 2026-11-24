@@ -37,12 +37,4 @@ public class FiveMExportTests : IDisposable
         var lua = File.ReadAllText(Path.Combine(_tempDir, "vehicle_names.lua"));
         Assert.Contains("AddTextEntry('JVPOLICE', 'Police Cruiser')", lua);
     }
-
-    private sealed class NoEncryption : IEncryptionService
-    {
-        public byte[] EncryptLocal(byte[] plaintext) => plaintext;
-        public byte[] DecryptLocal(byte[] ciphertext) => ciphertext;
-        public byte[] EncryptWithPassword(byte[] plaintext, string password) => plaintext;
-        public byte[] DecryptWithPassword(byte[] ciphertext, string password) => ciphertext;
-    }
 }

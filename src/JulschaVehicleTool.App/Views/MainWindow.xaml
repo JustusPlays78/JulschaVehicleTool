@@ -8,6 +8,7 @@
         Width="1280" Height="800"
         MinWidth="900" MinHeight="600"
         WindowStartupLocation="CenterScreen"
+        AllowDrop="True" DragOver="OnDragOver" Drop="OnDrop"
         Background="{DynamicResource BackgroundBrush}">
 
     <Window.Resources>
@@ -103,6 +104,7 @@
                     <Separator />
                     <MenuItem Header="Import Vehicle _Files..." Command="{Binding ImportVehicleFilesCommand}" />
                     <MenuItem Header="Import Vehicle F_older..." Command="{Binding ImportVehicleFolderCommand}" />
+                    <MenuItem Header="Import Vehicle _ZIP..." Command="{Binding ImportVehicleZipCommand}" />
                     <MenuItem Header="Import _Meta File..." Command="{Binding ImportMetaFileCommand}" />
                 </MenuItem>
                 <MenuItem Header="_Presets">
@@ -250,6 +252,8 @@
                                             </MenuItem>
                                             <MenuItem Header="Import Vehicle Folder..."
                                                       Command="{Binding DataContext.ImportVehicleFolderCommand, Source={x:Reference MainGrid}}" />
+                                            <MenuItem Header="Import Vehicle ZIP..."
+                                                      Command="{Binding DataContext.ImportVehicleZipCommand, Source={x:Reference MainGrid}}" />
                                             <MenuItem Header="Import Meta File..."
                                                       Command="{Binding DataContext.ImportMetaFileCommand, Source={x:Reference MainGrid}}" />
                                             <Separator />
